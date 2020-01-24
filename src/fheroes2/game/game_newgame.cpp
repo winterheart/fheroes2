@@ -20,6 +20,7 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include <sstream>
 #include "gamedefs.h"
 #include "agg.h"
 #include "dialog.h"
@@ -30,10 +31,73 @@
 #include "pocketpc.h"
 #include "world.h"
 #include "game.h"
+#include "mus.h"
+
+namespace
+{
+    const std::string rolandCampaignDescription[] = {
+        _( "Roland needs you to defeat the lords near his castle to begin his war of rebellion against his brother. They are not allied with each other, so they will spend most of their time fighting with on another. Victory is yours when you have defeated all of their castles and heroes." )
+    };
+
+    std::string ConvertToString( int value )
+    {
+        std::ostringstream ostr;
+        ostr << value;
+        return ostr.str();
+    }
+
+    void DrawCampaignScenarioIcon( int id, double offsetXMultipler, double offsetYMultipler, int icnId, Point offset )
+    {
+        const Sprite & campaignMapIcon = AGG::GetICN( ICN::CAMPXTRG, icnId );
+        campaignMapIcon.Blit( offset.x + 40 + 73 * offsetXMultipler, offset.y + 356 + campaignMapIcon.h() * ( offsetYMultipler - 0.5 ) );
+        Text campaignMapText( ConvertToString( id ), Font::YELLOW_BIG );
+        campaignMapText.Blit( offset.x + 40 + 73 * offsetXMultipler + campaignMapIcon.w(),
+                              offset.y + 356 + campaignMapIcon.h() * ( offsetYMultipler + 0.5 ) - campaignMapText.h() );
+    }
+
+    bool hasEnding( std::string const & fullString, std::string const & ending )
+    {
+        if ( fullString.length() >= ending.length() )
+            return (0 == fullString.compare( fullString.length() - ending.length(), ending.length(), ending ));
+        else
+            return false;
+    }
+
+    std::vector<Maps::FileInfo> GetRolandCampaign()
+    {
+        const size_t rolandMapCount = 11;
+        static const std::string rolandMap[rolandMapCount] = { "CAMPG01.H2C", "CAMPG02.H2C", "CAMPG03.H2C", "CAMPG04.H2C",  "CAMPG05.H2C", "CAMPG05B.H2C", "CAMPG06.H2C",
+                                                               "CAMPG07.H2C", "CAMPG08.H2C", "CAMPG09.H2C", "CAMPG10.H2C" };
+        const Settings & conf = Settings::Get();
+        const ListFiles files = conf.GetListFiles("maps", ".h2c");
+
+        std::vector<Maps::FileInfo> maps;
+
+        for ( size_t i = 0; i < rolandMapCount; ++i ) {
+            bool isPresent = false;
+            for ( ListFiles::const_iterator file = files.begin(); file != files.end(); ++file ) {
+                if ( hasEnding( *file, rolandMap[i] ) ) {
+                    Maps::FileInfo fi;
+                    if ( fi.ReadMP2( *file ) ) {
+                        maps.push_back(fi);
+                        isPresent = true;
+                        break;
+                    }
+                }
+            }
+            if ( !isPresent )
+                return std::vector<Maps::FileInfo>();
+        }
+
+        return maps;
+    }
+}
 
 int Game::NewStandard(void)
 {
     Settings & conf = Settings::Get();
+    if ( conf.GameType() == Game::TYPE_CAMPAIGN )
+        conf.SetCurrentFileInfo( Maps::FileInfo() );
     conf.SetGameType(Game::TYPE_STANDARD);
     conf.SetPreferablyCountPlayers(0);
     return Game::SELECTSCENARIO;
@@ -50,6 +114,9 @@ int Game::NewBattleOnly(void)
 int Game::NewHotSeat(void)
 {
     Settings & conf = Settings::Get();
+    if ( conf.GameType() == Game::TYPE_CAMPAIGN )
+        conf.SetCurrentFileInfo( Maps::FileInfo() );
+
     conf.SetGameType(conf.GameType() | Game::TYPE_HOTSEAT);
 
     if(conf.GameType(Game::TYPE_BATTLEONLY))
@@ -73,7 +140,109 @@ int Game::NewHotSeat(void)
 int Game::NewCampain(void)
 {
     Settings::Get().SetGameType(Game::TYPE_CAMPAIGN);
-    VERBOSE("New Campain Game: under construction.");
+
+    Mixer::Pause();
+    AGG::PlayMusic( MUS::VICTORY );
+    Settings & conf = Settings::Get();
+
+    // cursor
+    Cursor & cursor = Cursor::Get();
+    cursor.Hide();
+    cursor.SetThemes( cursor.POINTER );
+
+    Display & display = Display::Get();
+    display.Fill( ColorBlack );
+
+    const Sprite & backgroundImage = AGG::GetICN( ICN::CAMPBKGG, 0 );
+    const Point top( ( display.w() - backgroundImage.w() ) / 2, ( display.h() - backgroundImage.h() ) / 2 );
+    backgroundImage.Blit( top );
+
+    Button buttonViewIntro( top.x + 30 , top.y + 430, ICN::CAMPXTRG, 0, 1  );
+    Button buttonOk       ( top.x + 380, top.y + 430, ICN::NGEXTRA, 66, 67 );
+    Button buttonCancel   ( top.x + 520, top.y + 430, ICN::NGEXTRA, 68, 69 );
+
+    const std::vector<Maps::FileInfo> & campaignMap = GetRolandCampaign();
+
+    buttonViewIntro.SetDisable( true );
+    buttonViewIntro.Draw();
+    buttonOk.SetDisable( campaignMap.empty() );
+    buttonOk.Draw();
+    buttonCancel.Draw();
+
+    Text textDaysSpent( "0", Font::BIG );
+    textDaysSpent.Blit( top.x + 570 + textDaysSpent.w() / 2, top.y + 31 );
+
+    if ( !campaignMap.empty() ) {
+        TextBox mapName( campaignMap[0].description, Font::BIG, 200 );
+        mapName.Blit( top.x + 200, top.y + 97 - mapName.h() / 2 );
+
+        Text campaignMapId( "1", Font::BIG );
+        campaignMapId.Blit( top.x + 175 - campaignMapId.w() / 2, top.y + 97 - campaignMapId.h() / 2 );
+
+        TextBox mapDescription( rolandCampaignDescription[0], Font::BIG, 350 );
+        mapDescription.Blit( top.x + 40, top.y + 140 );
+
+        TextBox awards( _("None"), Font::BIG, 180 );
+        awards.Blit( top.x + 425, top.y + 100 );
+
+        Text choice1( _("2000 Gold"), Font::BIG );
+        choice1.Blit( top.x + 425, top.y + 209 - choice1.h() / 2 );
+        Text choice2( _("Thunder Mace"), Font::BIG );
+        choice2.Blit( top.x + 425, top.y + 209 + 23 - choice2.h() / 2 );
+        Text choice3( _("Gauntlets"), Font::BIG );
+        choice3.Blit( top.x + 425, top.y + 209 + 45 - choice3.h() / 2 );
+    }
+    else {
+        TextBox textCaption( "We are working hard to ensure that the support of Campaign would arrive as soon as possible", Font::YELLOW_BIG, 350 );
+        textCaption.Blit( top.x + 40, top.y + 140 );
+
+        TextBox textDescription( "Campaign Game mode is under construction", Font::BIG, 350 );
+        textDescription.Blit( top.x + 40, top.y + 200 );
+    }
+
+    DrawCampaignScenarioIcon( 1,   0,  0, 14, top );
+    DrawCampaignScenarioIcon( 2,   1,  0, 15, top );
+    DrawCampaignScenarioIcon( 3, 1.5, -1, 15, top );
+    DrawCampaignScenarioIcon( 4,   2,  0, 15, top );
+    DrawCampaignScenarioIcon( 5,   3,  0, 15, top );
+    DrawCampaignScenarioIcon( 6,   4,  0, 15, top );
+    DrawCampaignScenarioIcon( 7,   5,  0, 15, top );
+    DrawCampaignScenarioIcon( 8,   6, -1, 15, top );
+    DrawCampaignScenarioIcon( 9,   6,  1, 15, top );
+    DrawCampaignScenarioIcon( 10,  7,  0, 15, top );
+
+    LocalEvent & le = LocalEvent::Get();
+
+    cursor.Show();
+    display.Flip();
+
+    while ( le.HandleEvents() ) {
+        if ( !buttonCancel.isDisable() )
+            le.MousePressLeft( buttonCancel ) ? buttonCancel.PressDraw() : buttonCancel.ReleaseDraw();
+        if ( !buttonOk.isDisable() )
+            le.MousePressLeft( buttonOk ) ? buttonOk.PressDraw() : buttonOk.ReleaseDraw();
+
+        if ( le.MouseClickLeft( buttonCancel ) )
+            return Game::NEWGAME;
+        else if ( !buttonOk.isDisable() && le.MouseClickLeft( buttonOk ) ) {
+            conf.SetCurrentFileInfo( campaignMap[0] );
+            Players & players = conf.GetPlayers();
+            players.SetStartGame();
+            if ( conf.ExtGameUseFade() )
+                display.Fade();
+            Game::ShowLoadMapsText();
+            conf.SetGameType( Game::TYPE_CAMPAIGN );
+
+            if ( !world.LoadMapMP2( campaignMap[0].file ) ) {
+                Dialog::Message( "Campaign Game loading failure", "Please make sure that campaign files are correct and present", Font::SMALL, Dialog::OK );
+                conf.SetCurrentFileInfo( Maps::FileInfo() );
+                continue;
+            }
+
+            return Game::STARTGAME;
+        }
+    }
+
     return Game::NEWGAME;
 }
 
@@ -166,56 +335,61 @@ int Game::NewGame(void)
     LocalEvent & le = LocalEvent::Get();
 
     Button buttonStandartGame(top.x + 455, top.y + 45, ICN::BTNNEWGM, 0, 1);
-    Button buttonMultiGame(top.x + 455, top.y + 110, ICN::BTNNEWGM, 4, 5);
-    Button buttonSettings(top.x + 455, top.y + 240, ICN::BTNDCCFG, 4, 5);
+    Button buttonCampainGame(top.x + 455, top.y + 110, ICN::BTNNEWGM, 2, 3);
+    Button buttonMultiGame(top.x + 455, top.y + 175, ICN::BTNNEWGM, 4, 5);
+    Button buttonBattleGame(top.x + 455, top.y + 240, ICN::BTNBATTLEONLY, 0, 1);
+    Button buttonSettings(top.x + 455, top.y + 305, ICN::BTNDCCFG, 4, 5);
     Button buttonCancelGame(top.x + 455, top.y + 375, ICN::BTNNEWGM, 6, 7);
-    Button buttonBattleGame(top.x + 455, top.y + 175, ICN::BTNBATTLEONLY, 0, 1);
 
-
-    //Button buttonCampainGame(top.x + 455, top.y + 110, ICN::BTNNEWGM, 2, 3);
-    //Button buttonMultiGame(top.x + 455, top.y + 175, ICN::BTNNEWGM, 4, 5);
-    //Button buttonSettings(top.x + 455, top.y + 240, ICN::BTNDCCFG, 4, 5);
-    //Button buttonCancelGame(top.x + 455, top.y + 375, ICN::BTNNEWGM, 6, 7);
 
     buttonStandartGame.Draw();
-    //buttonCampainGame.Draw();
+    buttonCampainGame.Draw();
     buttonMultiGame.Draw();
-    buttonCancelGame.Draw();
-    buttonSettings.Draw();
-
-    if(conf.QVGA())
-	buttonBattleGame.SetDisable(true);
+    if ( conf.QVGA() )
+        buttonBattleGame.SetDisable(true);
     else
-	buttonBattleGame.Draw();
+        buttonBattleGame.Draw();
+    buttonSettings.Draw();
+    buttonCancelGame.Draw();
 
     cursor.Show();
     display.Flip();
 
-    // newgame loop
-    while(le.HandleEvents())
-    {
-	le.MousePressLeft(buttonStandartGame) ? buttonStandartGame.PressDraw() : buttonStandartGame.ReleaseDraw();
-	//le.MousePressLeft(buttonCampainGame) ? buttonCampainGame.PressDraw() : buttonCampainGame.ReleaseDraw();
-	le.MousePressLeft(buttonMultiGame) ? buttonMultiGame.PressDraw() : buttonMultiGame.ReleaseDraw();
-	le.MousePressLeft(buttonCancelGame) ? buttonCancelGame.PressDraw() : buttonCancelGame.ReleaseDraw();
-	le.MousePressLeft(buttonSettings) ? buttonSettings.PressDraw() : buttonSettings.ReleaseDraw();
-	buttonBattleGame.isEnable() && le.MousePressLeft(buttonBattleGame) ? buttonBattleGame.PressDraw() : buttonBattleGame.ReleaseDraw();
+    while ( le.HandleEvents() ) { // new game loop
+        le.MousePressLeft(buttonStandartGame) ? buttonStandartGame.PressDraw() : buttonStandartGame.ReleaseDraw();
+        le.MousePressLeft(buttonCampainGame) ? buttonCampainGame.PressDraw() : buttonCampainGame.ReleaseDraw();
+        le.MousePressLeft(buttonMultiGame) ? buttonMultiGame.PressDraw() : buttonMultiGame.ReleaseDraw();
+        buttonBattleGame.isEnable() && le.MousePressLeft(buttonBattleGame) ? buttonBattleGame.PressDraw() : buttonBattleGame.ReleaseDraw();
+        le.MousePressLeft(buttonSettings) ? buttonSettings.PressDraw() : buttonSettings.ReleaseDraw();
+        le.MousePressLeft(buttonCancelGame) ? buttonCancelGame.PressDraw() : buttonCancelGame.ReleaseDraw();
 
-	if(HotKeyPressEvent(EVENT_BUTTON_STANDARD) || le.MouseClickLeft(buttonStandartGame)) return NEWSTANDARD;
-	//if(HotKeyPressEvent(EVENT_BUTTON_CAMPAIN) || le.MouseClickLeft(buttonCampainGame)) return NEWCAMPAIN;
-	if(HotKeyPressEvent(EVENT_BUTTON_MULTI) || le.MouseClickLeft(buttonMultiGame)) return NEWMULTI;
-	if(HotKeyPressEvent(EVENT_BUTTON_SETTINGS) || le.MouseClickLeft(buttonSettings)){ Dialog::ExtSettings(false); cursor.Show(); display.Flip(); }
-	if(HotKeyPressEvent(EVENT_DEFAULT_EXIT) || le.MouseClickLeft(buttonCancelGame)) return MAINMENU;
+        if ( HotKeyPressEvent( EVENT_BUTTON_STANDARD ) || le.MouseClickLeft( buttonStandartGame ) )
+            return NEWSTANDARD;
+        if ( HotKeyPressEvent( EVENT_BUTTON_CAMPAIN ) || le.MouseClickLeft( buttonCampainGame ) )
+            return NEWCAMPAIN;
+        if ( HotKeyPressEvent( EVENT_BUTTON_MULTI ) || le.MouseClickLeft( buttonMultiGame ) )
+            return NEWMULTI;
+        if ( HotKeyPressEvent( EVENT_BUTTON_SETTINGS ) || le.MouseClickLeft( buttonSettings ) ) {
+            Dialog::ExtSettings(false);
+            cursor.Show();
+            display.Flip();
+        }
+        if ( HotKeyPressEvent( EVENT_DEFAULT_EXIT ) || le.MouseClickLeft( buttonCancelGame ) )
+            return MAINMENU;
 
-	if(buttonBattleGame.isEnable())
-	if(HotKeyPressEvent(EVENT_BUTTON_BATTLEONLY) || le.MouseClickLeft(buttonBattleGame)) return NEWBATTLEONLY;
+        if ( buttonBattleGame.isEnable() && ( HotKeyPressEvent( EVENT_BUTTON_BATTLEONLY ) || le.MouseClickLeft( buttonBattleGame ) ) )
+            return NEWBATTLEONLY;
 
-        // right info
-	if(le.MousePressRight(buttonStandartGame)) Dialog::Message(_("Standard Game"), _("A single player game playing out a single map."), Font::BIG);
-	//if(le.MousePressRight(buttonCampainGame)) Dialog::Message(_("Campaign Game"), _("A single player game playing through a series of maps."), Font::BIG);
-	if(le.MousePressRight(buttonMultiGame)) Dialog::Message(_("Multi-Player Game"), _("A multi-player game, with several human players completing against each other on a single map."), Font::BIG);
-	if(le.MousePressRight(buttonSettings)) Dialog::Message(_("Settings"), _("FHeroes2 game settings."), Font::BIG);
-	if(le.MousePressRight(buttonCancelGame)) Dialog::Message(_("Cancel"), _("Cancel back to the main menu."), Font::BIG);
+        if ( le.MousePressRight( buttonStandartGame ) )
+            Dialog::Message( _("Standard Game"), _("A single player game playing out a single map."), Font::BIG );
+        if ( le.MousePressRight( buttonCampainGame ) )
+            Dialog::Message( _("Campaign Game"), _("A single player game playing through a series of maps."), Font::BIG );
+        if ( le.MousePressRight( buttonMultiGame ) )
+            Dialog::Message( _("Multi-Player Game"), _("A multi-player game, with several human players completing against each other on a single map."), Font::BIG );
+        if ( le.MousePressRight( buttonSettings ) )
+            Dialog::Message( _("Settings"), _("FHeroes2 game settings."), Font::BIG );
+        if ( le.MousePressRight( buttonCancelGame ) )
+            Dialog::Message( _("Cancel"), _("Cancel back to the main menu."), Font::BIG );
     }
 
     return QUITGAME;

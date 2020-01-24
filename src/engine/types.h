@@ -23,7 +23,7 @@
 #ifndef H2TYPES_H
 #define H2TYPES_H
 
-#include "SDL.h"
+#include <SDL.h>
 
 typedef Sint8		s8;
 typedef Uint8		u8;
@@ -41,7 +41,6 @@ typedef Uint32		u32;
 #define DELAY(X)		SDL_Delay(X)
 
 #if defined __SYMBIAN32__
-#define PATH_MAX FILENAME_MAX
 namespace std
 {
     int		c_abs(int x);
@@ -53,11 +52,6 @@ namespace std
 #define abs(x) 			c_abs(x)
 }
 using namespace std;
-#endif
-
-#if defined __MINGW32CE__
-#undef PATH_MAX
-#define PATH_MAX 		255
 #endif
 
 #endif

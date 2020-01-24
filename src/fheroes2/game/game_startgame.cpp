@@ -49,6 +49,8 @@
 #include "kingdom.h"
 #include "pocketpc.h"
 #include "battle_only.h"
+#include "mus.h"
+#include "m82.h"
 
 int Game::StartBattleOnly(void)
 {
@@ -706,8 +708,11 @@ int Interface::Basic::HumanTurn(bool isload)
 
 
     // startgame loop
-    while(Game::CANCEL == res && le.HandleEvents())
-    {
+    while ( Game::CANCEL == res ) {
+        if ( !le.HandleEvents() ) {
+            res = Game::QUITGAME;
+            break;
+        }
 	// for pocketpc: auto hide status if start turn
 	if(autohide_status && Game::AnimateInfrequentDelay(Game::AUTOHIDE_STATUS_DELAY))
 	{
