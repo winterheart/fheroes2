@@ -20,73 +20,101 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#include <iostream>
 #include <fstream>
-#include <sstream>
 #include <iomanip>
+#include <iostream>
+#include <sstream>
 
 #include <SDL.h>
+
 #include "engine.h"
+#include "palette_h2.h"
 #include "system.h"
 
-int main(int argc, char **argv)
+namespace H2Palette
 {
-    if(argc != 3)
+    std::vector<SDL_Color> pal_colors;
+
+    void Init( void )
     {
-	std::cout << argv[0] << " [-d] infile.til extract_to_dir" << std::endl;
-	return EXIT_SUCCESS;
+        // load palette
+        u32 ncolors = ARRAY_COUNT( kb_pal ) / 3;
+        pal_colors.reserve( ncolors );
+
+        for ( u32 ii = 0; ii < ncolors; ++ii ) {
+            u32 index = ii * 3;
+            SDL_Color cols;
+
+            cols.r = kb_pal[index] << 2;
+            cols.g = kb_pal[index + 1] << 2;
+            cols.b = kb_pal[index + 2] << 2;
+
+            pal_colors.push_back( cols );
+        }
+
+        Surface::SetDefaultPalette( &pal_colors[0], pal_colors.size() );
+    }
+
+    RGBA GetColor( u32 index )
+    {
+        return index < pal_colors.size() ? RGBA( pal_colors[index].r, pal_colors[index].g, pal_colors[index].b ) : RGBA( 0, 0, 0 );
+    }
+}
+
+int main( int argc, char ** argv )
+{
+    if ( argc != 3 ) {
+        std::cout << argv[0] << " [-d] infile.til extract_to_dir" << std::endl;
+        return EXIT_SUCCESS;
     }
 
     StreamFile sf;
 
-    if(! sf.open(argv[1], "rb"))
-    {
-	std::cout << "error open file: " << argv[1] << std::endl;
-	return EXIT_SUCCESS;
+    if ( !sf.open( argv[1], "rb" ) ) {
+        std::cout << "error open file: " << argv[1] << std::endl;
+        return EXIT_SUCCESS;
     }
 
-    std::string prefix(argv[2]);
-    std::string shortname(argv[1]);
-    
-    if(shortname == "-d")
-    {
+    std::string prefix( argv[2] );
+    std::string shortname( argv[1] );
+
+    if ( shortname == "-d" ) {
     }
 
-    shortname.replace(shortname.find("."), 4, "");
-    prefix = System::ConcatePath(prefix, shortname);
+    shortname.replace( shortname.find( "." ), 4, "" );
+    prefix = System::ConcatePath( prefix, shortname );
 
-    if(0 != System::MakeDirectory(prefix))
-    {
-	std::cout << "error mkdir: " << prefix << std::endl;
-	return EXIT_SUCCESS;
+    if ( 0 != System::MakeDirectory( prefix ) ) {
+        std::cout << "error mkdir: " << prefix << std::endl;
+        return EXIT_SUCCESS;
     }
 
     int size = sf.size();
     int count = sf.getLE16();
     int width = sf.getLE16();
     int height = sf.getLE16();
-    std::vector<u8> buf = sf.getRaw(size);
+    std::vector<u8> buf = sf.getRaw( size );
 
     SDL::Init();
+    H2Palette::Init();
 
-    for(int cur = 0; cur < count; ++cur)
-    {
-	u32 offset = width * height * cur;
-	if(offset < buf.size())
-	{
-	    Surface sf(& buf[offset], width, height, 1, false);
+    for ( int cur = 0; cur < count; ++cur ) {
+        u32 offset = width * height * cur;
+        if ( offset < buf.size() ) {
+            Surface sf( &buf[offset], width, height, 1, false );
 
-	    std::ostringstream stream;
-    	    stream << std::setw(3) << std::setfill('0') << cur;
-	    std::string dstfile = System::ConcatePath(prefix, stream.str());
+            std::ostringstream stream;
+            stream << std::setw( 3 ) << std::setfill( '0' ) << cur;
+            std::string dstfile = System::ConcatePath( prefix, stream.str() );
 
 #ifndef WITH_IMAGE
-    	    dstfile += ".bmp";
+            dstfile += ".bmp";
 #else
-    	    dstfile += ".png";
+            dstfile += ".png";
 #endif
-    	    sf.Save(dstfile.c_str());
-	}
+            if ( !sf.Save( dstfile.c_str() ) )
+                std::cout << "error" << std::endl;
+        }
     }
 
     sf.close();

@@ -114,12 +114,12 @@ matrix:
     - os: osx
       name: "OSX with SDL 1.2"
       before_install:
+        - export HOMEBREW_NO_INSTALL_CLEANUP=1
         - brew update
         - brew install sdl
         - brew install sdl_ttf
         - brew install sdl_mixer
         - brew install sdl_image
-        - brew install gettext
         - export PATH="/usr/local/opt/gettext/bin:$PATH"
       before_deploy:
         - zip fheroes2_osx_sdl1.zip fheroes2 LICENSE fheroes2.cfg fheroes2.key script/macos/install_sdl_1.sh script/demo/demo_macos.sh
@@ -139,12 +139,12 @@ matrix:
     - os: osx
       name: "OSX with SDL 2.0"
       before_install:
+        - export HOMEBREW_NO_INSTALL_CLEANUP=1
         - brew update
         - brew install sdl2
         - brew install sdl2_ttf
         - brew install sdl2_mixer
         - brew install sdl2_image
-        - brew install gettext
         - export PATH="/usr/local/opt/gettext/bin:$PATH"
         - export WITH_SDL2="ON"
       before_deploy:
@@ -175,24 +175,12 @@ matrix:
         - make
     - os: linux
       name: "Static analysis"
-      before_install:
-        - |
-          if [[ "$TRAVIS_PULL_REQUEST" != "false" ]]; then
-            curl -L http://llvm.org/svn/llvm-project/cfe/trunk/tools/clang-format/clang-format-diff.py -o $TRAVIS_BUILD_DIR/script/tools/clang-format-diff.py;
-          fi
       script:
         - export EXCLUDE_PATTERN_1=" not found in expected header ";
-        - export EXCLUDE_PATTERN_2=" does not need to be \#included; use a forward declaration instead";
-        - export EXCLUDE_PATTERN_3=" not found in any directly \#included header";
-        - export EXCLUDE_PATTERN_4=" unable to find ";
+        - export EXCLUDE_PATTERN_2=" not found in any directly \#included header";
+        - export EXCLUDE_PATTERN_3=" unable to find ";
         - git clone https://github.com/myint/cppclean;
-        - ./cppclean/cppclean src | grep -v "$EXCLUDE_PATTERN_1" | grep -v "$EXCLUDE_PATTERN_2" | grep -v "$EXCLUDE_PATTERN_3" | grep -v "$EXCLUDE_PATTERN_4";
-        - |
-          if [[ "$TRAVIS_PULL_REQUEST" != "false" ]]; then
-            echo "Checking clang-format between TRAVIS_BRANCH=$TRAVIS_BRANCH and TRAVIS_PULL_REQUEST_BRANCH=$TRAVIS_PULL_REQUEST_BRANCH"
-            bash $TRAVIS_BUILD_DIR/script/tools/check_code_format.sh
-          fi
-
+        - ./cppclean/cppclean src | grep -v "$EXCLUDE_PATTERN_1" | grep -v "$EXCLUDE_PATTERN_2" | grep -v "$EXCLUDE_PATTERN_3";
 
 script:
   - |

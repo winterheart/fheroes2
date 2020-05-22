@@ -22,20 +22,20 @@
 
 #include "agg.h"
 #include "audio_music.h"
-#include "text.h"
 #include "button.h"
 #include "cursor.h"
-#include "settings.h"
-#include "game.h"
 #include "dialog.h"
+#include "game.h"
+#include "settings.h"
+#include "text.h"
 
 namespace Dialog
 {
-    void DrawSystemInfo(const Rects &);
+    void DrawSystemInfo( const Rects & );
 }
 
-/* return 0x01 - change speed, 0x02 - change sound, 0x04 - change music, 0x08 - change interface, 0x10 - change scroll  */
-int Dialog::SystemOptions(void)
+/* return 0x01 - change speed, 0x02 - change sound, 0x04 - hide interface, 0x08 - change interface, 0x10 - change scroll  */
+int Dialog::SystemOptions( void )
 {
     Display & display = Display::Get();
     Settings & conf = Settings::Get();
@@ -44,13 +44,13 @@ int Dialog::SystemOptions(void)
     Cursor & cursor = Cursor::Get();
     const int oldcursor = cursor.Themes();
     cursor.Hide();
-    cursor.SetThemes(cursor.POINTER);
+    cursor.SetThemes( cursor.POINTER );
 
     Dialog::FrameBorder frameborder( ( display.w() - 250 - BORDERWIDTH * 2 ) / 2, ( display.h() - 382 - BORDERWIDTH * 2 ) / 2 - ( conf.QVGA() ? 25 : 0 ), 288, 382 );
     const Rect & area = frameborder.GetArea();
 
     Rects rects;
-    const s32 posx = (area.w - 256) / 2;
+    const s32 posx = ( area.w - 256 ) / 2;
     rects.push_back( Rect( area.x + posx, area.y + 30, 64, 64 ) );
     rects.push_back( Rect( area.x + posx + 92, area.y + 30, 64, 64 ) );
     rects.push_back( Rect( area.x + posx + 184, area.y + 30, 64, 64 ) );
@@ -63,20 +63,20 @@ int Dialog::SystemOptions(void)
 
     const Rect & rect1 = rects[0];
     const Rect & rect2 = rects[1];
-//    const Rect & rect3 = rects[2];
+    const Rect & rect3 = rects[2];
     const Rect & rect4 = rects[3];
     const Rect & rect5 = rects[4];
     const Rect & rect6 = rects[5];
     const Rect & rect7 = rects[6];
     const Rect & rect8 = rects[7];
-//    const Rect & rect9 = rects[8];
+    //    const Rect & rect9 = rects[8];
 
-    Surface back2 = display.GetSurface(Rect(area.x, area.y, area.w, area.h - 30));
-    DrawSystemInfo(rects);
+    Surface back2 = display.GetSurface( Rect( area.x, area.y, area.w, area.h - 30 ) );
+    DrawSystemInfo( rects );
 
     LocalEvent & le = LocalEvent::Get();
 
-    ButtonGroups btnGroups(area, Dialog::OK);
+    ButtonGroups btnGroups( area, Dialog::OK );
     btnGroups.Draw();
 
     cursor.Show();
@@ -105,43 +105,52 @@ int Dialog::SystemOptions(void)
         }
 
         // set music type
+        if ( le.MouseClickLeft( rect3 ) ) {
+            int type = conf.MusicType() + 1;
+            // If there's no expansion files we skip this option
+            if ( type == MUSIC_MIDI_EXPANSION && !conf.PriceLoyaltyVersion() )
+                ++type;
+            // CD music is currently not implemented correctly even on SDL1; remove this when done
+            if ( type == MUSIC_CDROM )
+                ++type;
+
+            conf.SetMusicType( type > MUSIC_CDROM ? 0 : type );
+            result |= 0x02;
+            redraw = true;
+        }
 
         // set hero speed
         if ( le.MouseClickLeft( rect4 ) ) {
             conf.SetHeroesMoveSpeed( conf.HeroesMoveSpeed() % 10 + 1 );
             result |= 0x01;
             redraw = true;
-            Game::UpdateHeroesMoveSpeed();
+            Game::UpdateGameSpeed();
         }
 
         // set ai speed
-        if(le.MouseClickLeft(rect5))
-        {
+        if ( le.MouseClickLeft( rect5 ) ) {
             conf.SetAIMoveSpeed( conf.AIMoveSpeed() % 10 + 1 );
             result |= 0x01;
             redraw = true;
-            Game::UpdateHeroesMoveSpeed();
+            Game::UpdateGameSpeed();
         }
 
         // set scroll speed
-        if(le.MouseClickLeft(rect6))
-        {
+        if ( le.MouseClickLeft( rect6 ) ) {
             conf.SetScrollSpeed( SCROLL_FAST2 > conf.ScrollSpeed() ? conf.ScrollSpeed() << 1 : SCROLL_SLOW );
             result |= 0x10;
             redraw = true;
         }
 
         // set interface theme
-        if(le.MouseClickLeft(rect7))
-        {
+        if ( le.MouseClickLeft( rect7 ) ) {
             conf.SetEvilInterface( !conf.ExtGameEvilInterface() );
             result |= 0x08;
             redraw = true;
         }
 
         // set interface hide/show
-        if(le.MouseClickLeft(rect8) && !conf.QVGA())
-        {
+        if ( le.MouseClickLeft( rect8 ) && !conf.QVGA() ) {
             conf.SetHideInterface( !conf.ExtGameHideInterface() );
             result |= 0x04;
             redraw = true;
@@ -159,14 +168,14 @@ int Dialog::SystemOptions(void)
 
     // restore background
     cursor.Hide();
-    cursor.SetThemes(oldcursor);
+    cursor.SetThemes( oldcursor );
     cursor.Show();
     display.Flip();
 
     return result;
 }
 
-void Dialog::DrawSystemInfo(const Rects & rects)
+void Dialog::DrawSystemInfo( const Rects & rects )
 {
     Display & display = Display::Get();
     Settings & conf = Settings::Get();
@@ -174,8 +183,8 @@ void Dialog::DrawSystemInfo(const Rects & rects)
     std::string str;
     Text text;
 
-    Surface black(Size(65, 65), false);
-    black.Fill(ColorBlack);
+    Surface black( Size( 65, 65 ), false );
+    black.Fill( ColorBlack );
 
     const int textOffset = 2;
 
@@ -183,7 +192,7 @@ void Dialog::DrawSystemInfo(const Rects & rects)
     const Sprite & sprite1 = AGG::GetICN( ICN::SPANEL, conf.Music() ? 1 : 0 );
     const Rect & rect1 = rects[0];
     sprite1.Blit( rect1 );
-    str = _( "music" );
+    str = _( "Music" );
     text.Set( str, Font::SMALL );
     text.Blit( rect1.x + ( rect1.w - text.w() ) / 2, rect1.y - text.h() - textOffset );
 
@@ -198,7 +207,7 @@ void Dialog::DrawSystemInfo(const Rects & rects)
     const Sprite & sprite2 = AGG::GetICN( ICN::SPANEL, conf.Sound() ? 3 : 2 );
     const Rect & rect2 = rects[1];
     sprite2.Blit( rect2 );
-    str = _( "effects" );
+    str = _( "Effects" );
     text.Set( str, Font::SMALL );
     text.Blit( rect2.x + ( rect2.w - text.w() ) / 2, rect2.y - text.h() - textOffset );
 
@@ -209,53 +218,67 @@ void Dialog::DrawSystemInfo(const Rects & rects)
     text.Set( str, Font::SMALL );
     text.Blit( rect2.x + ( rect2.w - text.w() ) / 2, rect2.h + rect2.y + textOffset );
 
-    // unused
-    // const Sprite & sprite3 = AGG::GetICN(ICN::SPANEL, 17);
+    // Music Type
+    const Sprite & sprite3 = AGG::GetICN( ICN::SPANEL, conf.MusicType() == MUSIC_CDROM ? 11 : 10 );
     const Rect & rect3 = rects[2];
-    black.Blit( rect3, display );
-    str = "unused";
+    sprite3.Blit( rect3, display );
+    str = _( "Music Type" );
+    text.Set( str, Font::SMALL );
+    text.Blit( rect3.x + ( rect3.w - text.w() ) / 2, rect3.y - text.h() - textOffset );
+
+    if ( conf.MusicType() == MUSIC_MIDI_ORIGINAL ) {
+        str = _( "MIDI" );
+    }
+    else if ( conf.MusicType() == MUSIC_MIDI_EXPANSION ) {
+        str = _( "MIDI Expansion" );
+    }
+    else if ( conf.MusicType() == MUSIC_CDROM ) {
+        str = _( "CD Stereo" );
+    }
     text.Set( str );
     text.Blit( rect3.x + ( rect3.w - text.w() ) / 2, rect3.y + rect3.h + textOffset );
 
     // hero move speed
-    const u32 is4 = conf.HeroesMoveSpeed() ? (conf.HeroesMoveSpeed() < 9 ? (conf.HeroesMoveSpeed() < 7 ? (conf.HeroesMoveSpeed() < 4 ? 4 : 5) : 6) : 7) : 9;
-    const Sprite & sprite4 = AGG::GetICN(ICN::SPANEL, is4);
+    const int heroSpeed = conf.HeroesMoveSpeed();
+    const u32 is4 = heroSpeed ? ( heroSpeed < 4 ? 4 : 3 + heroSpeed / 2 ) : 9;
+    const Sprite & sprite4 = AGG::GetICN( ICN::SPANEL, is4 );
     const Rect & rect4 = rects[3];
-    sprite4.Blit(rect4);
-    str = _("hero speed");
+    sprite4.Blit( rect4 );
+    str = _( "Hero Speed" );
     text.Set( str );
     text.Blit( rect4.x + ( rect4.w - text.w() ) / 2, rect4.y - text.h() - textOffset );
 
-    if(conf.HeroesMoveSpeed())
-        str = GetString( conf.HeroesMoveSpeed() );
+    if ( heroSpeed )
+        str = GetString( heroSpeed );
     else
         str = _( "off" );
     text.Set( str );
     text.Blit( rect4.x + ( rect4.w - text.w() ) / 2, rect4.y + rect4.h + textOffset );
 
     // ai move speed
-    const u32 is5 = conf.AIMoveSpeed() ? (conf.AIMoveSpeed() < 9 ? (conf.AIMoveSpeed() < 7 ? (conf.AIMoveSpeed() < 4 ? 4 : 5) : 6) : 7) : 9;
-    const Sprite & sprite5 = AGG::GetICN(ICN::SPANEL, is5);
+    const int aiSpeed = conf.AIMoveSpeed();
+    const u32 is5 = aiSpeed ? ( aiSpeed < 4 ? 4 : 3 + aiSpeed / 2 ) : 9;
+    const Sprite & sprite5 = AGG::GetICN( ICN::SPANEL, is5 );
     const Rect & rect5 = rects[4];
-    sprite5.Blit(rect5);
-    str = _("ai speed");
+    sprite5.Blit( rect5 );
+    str = _( "Enemy Speed" );
     text.Set( str );
     text.Blit( rect5.x + ( rect5.w - text.w() ) / 2, rect5.y - text.h() - textOffset );
 
-    if(conf.AIMoveSpeed())
-        str = GetString( conf.AIMoveSpeed() );
+    if ( aiSpeed )
+        str = GetString( aiSpeed );
     else
         str = _( "off" );
-    text.Set(str);
+    text.Set( str );
     text.Blit( rect5.x + ( rect5.w - text.w() ) / 2, rect5.y + rect5.h + textOffset );
 
     // scroll speed
-    const u32 is6 = (conf.ScrollSpeed() < SCROLL_FAST2 ? (conf.ScrollSpeed() < SCROLL_FAST1 ? (conf.ScrollSpeed() < SCROLL_NORMAL ? 4 : 5) : 6) : 7);
-    const Sprite & sprite6 = AGG::GetICN(ICN::SPANEL, is6);
+    const u32 is6 = ( conf.ScrollSpeed() < SCROLL_FAST2 ? ( conf.ScrollSpeed() < SCROLL_FAST1 ? ( conf.ScrollSpeed() < SCROLL_NORMAL ? 4 : 5 ) : 6 ) : 7 );
+    const Sprite & sprite6 = AGG::GetICN( ICN::SPANEL, is6 );
     const Rect & rect6 = rects[5];
-    sprite6.Blit(rect6);
-    str = _("scroll speed");
-    text.Set(str);
+    sprite6.Blit( rect6 );
+    str = _( "Scroll Speed" );
+    text.Set( str );
     text.Blit( rect6.x + ( rect6.w - text.w() ) / 2, rect5.y - text.h() - textOffset );
 
     str = GetString( conf.ScrollSpeed() );
@@ -263,14 +286,14 @@ void Dialog::DrawSystemInfo(const Rects & rects)
     text.Blit( rect6.x + ( rect6.w - text.w() ) / 2, rect6.y + rect6.h + textOffset );
 
     // interface themes
-    const Sprite & sprite7 = AGG::GetICN(ICN::SPANEL, (conf.ExtGameEvilInterface() ? 17 : 16));
+    const Sprite & sprite7 = AGG::GetICN( ICN::SPANEL, ( conf.ExtGameEvilInterface() ? 17 : 16 ) );
     const Rect & rect7 = rects[6];
-    sprite7.Blit(rect7);
-    str = _("Interface");
+    sprite7.Blit( rect7 );
+    str = _( "Interface" );
     text.Set( str );
     text.Blit( rect7.x + ( rect7.w - text.w() ) / 2, rect7.y - text.h() - textOffset );
 
-    if(conf.ExtGameEvilInterface())
+    if ( conf.ExtGameEvilInterface() )
         str = _( "Evil" );
     else
         str = _( "Good" );
@@ -278,20 +301,18 @@ void Dialog::DrawSystemInfo(const Rects & rects)
     text.Blit( rect7.x + ( rect7.w - text.w() ) / 2, rect7.y + rect7.h + textOffset );
 
     // interface show/hide
-    const Sprite & sprite8 = AGG::GetICN(ICN::SPANEL, 16);
-    const Sprite & sprite81 = AGG::GetICN(ICN::ESPANEL, 4);
+    const Sprite & sprite8 = AGG::GetICN( ICN::SPANEL, 16 );
+    const Sprite & sprite81 = AGG::GetICN( ICN::ESPANEL, 4 );
     const Rect & rect8 = rects[7];
-    str = _("Interface");
+    str = _( "Interface" );
     text.Set( str );
     text.Blit( rect8.x + ( rect8.w - text.w() ) / 2, rect8.y - text.h() - textOffset );
 
-    if(conf.ExtGameHideInterface())
-    {
+    if ( conf.ExtGameHideInterface() ) {
         sprite81.Blit( rect8, display );
         str = _( "Hide" );
     }
-    else
-    {
+    else {
         sprite8.Blit( rect8, display );
         sprite81.Blit( Rect( 13, 13, 38, 38 ), rect8.x + 13, rect8.y + 13 );
         str = _( "Show" );
@@ -300,7 +321,7 @@ void Dialog::DrawSystemInfo(const Rects & rects)
     text.Blit( rect8.x + ( rect8.w - text.w() ) / 2, rect8.y + rect8.h + textOffset );
 
     // unused
-    //const Sprite & sprite9 = AGG::GetICN(ICN::SPANEL, 17);
+    // const Sprite & sprite9 = AGG::GetICN(ICN::SPANEL, 17);
     const Rect & rect9 = rects[8];
     black.Blit( rect9, display );
     str = "unused";
