@@ -205,9 +205,6 @@ void Interface::Radar::Redraw( void )
 
     if ( conf.ExtGameHideInterface() && conf.ShowRadar() ) {
         BorderWindow::Redraw();
-        // const Rect & rect = GetRect();
-        // AGG::GetICN(ICN::CELLWIN, 4).Blit(rect.x + 2, rect.y + 2);
-        // AGG::GetICN(ICN::CELLWIN, 5).Blit(rect.x + 5, rect.y + 5);
     }
 
     if ( !conf.ExtGameHideInterface() || conf.ShowRadar() ) {
@@ -326,7 +323,7 @@ void Interface::Radar::RedrawCursor( void )
 
     if ( !conf.ExtGameHideInterface() || conf.ShowRadar() ) {
         const Rect & rect = GetArea();
-        const Rect & rectMaps = interface.GetGameArea().GetRectMaps();
+        const Rect & rectMaps = interface.GetGameArea().GetVisibleTileROI();
 
         s32 areaw = ( offset.x ? rect.w - 2 * offset.x : rect.w );
         s32 areah = ( offset.y ? rect.h - 2 * offset.y : rect.h );
@@ -374,13 +371,13 @@ void Interface::Radar::QueueEventProcessing( void )
         // move cursor
         if ( le.MouseCursor( rect ) ) {
         if ( le.MouseClickLeft() || le.MousePressLeft() ) {
-            const Point prev( gamearea.GetRectMaps() );
+            const Point prev( gamearea.GetVisibleTileROI() );
             const Point & pt = le.GetMouseCursor();
 
             if ( rect & pt ) {
-                gamearea.SetCenter( ( pt.x - rect.x ) * world.w() / rect.w, ( pt.y - rect.y ) * world.h() / rect.h );
+                gamearea.SetCenter( Point( ( pt.x - rect.x ) * world.w() / rect.w, ( pt.y - rect.y ) * world.h() / rect.h ) );
 
-                if ( prev != gamearea.GetRectMaps() ) {
+                if ( prev != gamearea.GetVisibleTileROI() ) {
                     Cursor::Get().Hide();
                     RedrawCursor();
                     gamearea.SetRedraw();

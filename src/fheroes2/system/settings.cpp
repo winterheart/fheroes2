@@ -493,6 +493,7 @@ Settings::Settings()
     ExtSetModes( GAME_AUTOSAVE_ON );
     ExtSetModes( CASTLE_ALLOW_BUY_FROM_WELL );
     ExtSetModes( WORLD_SHOW_VISITED_CONTENT );
+    ExtSetModes( WORLD_ONLY_FIRST_MONSTER_ATTACK );
 
     opt_global.SetModes( GLOBAL_SHOWRADAR );
     opt_global.SetModes( GLOBAL_SHOWICONS );
@@ -561,7 +562,7 @@ bool Settings::Read( const std::string & filename )
         debug = DBG_GAME_TRACE | DBG_AI_TRACE;
         break;
     case 8:
-        debug = DBG_ENGINE_TRACE | DBG_GAME_TRACE | DBG_AI_TRACE;
+        debug = DBG_BATTLE_TRACE | DBG_AI_TRACE;
         break;
     case 9:
         debug = DBG_ALL_TRACE;
@@ -649,6 +650,7 @@ bool Settings::Read( const std::string & filename )
         else if ( sval == "external" ) {
             opt_global.ResetModes( GLOBAL_MUSIC );
             opt_global.SetModes( GLOBAL_MUSIC_EXT );
+            _musicType = MUSIC_CDROM;
         }
     }
 

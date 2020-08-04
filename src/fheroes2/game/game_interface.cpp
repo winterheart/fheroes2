@@ -43,6 +43,11 @@ Interface::Basic::Basic()
     , controlPanel( *this )
     , redraw( 0 )
 {
+    Reset();
+}
+
+void Interface::Basic::Reset()
+{
     Settings & conf = Settings::Get().Get();
     const Display & display = Display::Get();
     const int scroll_width = conf.QVGA() ? 12 : BORDERWIDTH;
@@ -223,30 +228,77 @@ void Interface::Basic::RedrawSystemInfo( s32 cx, s32 cy, u32 usage )
 
 s32 Interface::Basic::GetDimensionDoorDestination( s32 from, u32 distance, bool water ) const
 {
-    Cursor & cursor = Cursor::Get();
     Display & display = Display::Get();
+
+    Interface::Radar & radar = Interface::Basic::Get().GetRadar();
+    const Rect & radarArea = radar.GetArea();
     Settings & conf = Settings::Get();
+    const Sprite & viewDoor = AGG::GetICN( ( conf.ExtGameEvilInterface() ? ICN::EVIWDDOR : ICN::VIEWDDOR ), 0 );
+    SpriteBack back( Rect( radarArea.x, radarArea.y, radarArea.w, radarArea.h ) );
+    viewDoor.Blit( radarArea );
+
+    const Rect & visibleArea = gameArea.GetROI();
+    const bool isFadingEnabled = ( gameArea.GetROI().w > TILEWIDTH * distance ) || ( gameArea.GetROI().h > TILEWIDTH * distance );
+    const Surface & top = display.GetSurface( visibleArea );
+
+    // We need to add an extra one cell as a hero stands exactly in the middle of a cell
+    const Point heroPos( gameArea.GetRelativeTilePosition( Maps::GetPoint( from ) ) );
+    const Point heroPosOffset( heroPos.x - TILEWIDTH * ( distance / 2 ), heroPos.y - TILEWIDTH * ( distance / 2 ) );
+    const Rect spellROI( heroPosOffset.x, heroPosOffset.y, TILEWIDTH * ( distance + 1 ), TILEWIDTH * ( distance + 1 ) );
+
+    if ( isFadingEnabled ) {
+        Surface back( top.GetSize(), false );
+        back.Fill( ColorBlack );
+
+        const Surface middle = display.GetSurface( spellROI );
+        display.InvertedFade( top, back, Point( visibleArea.x, visibleArea.y ), middle, heroPosOffset, 105, 300 );
+    }
+
+    Cursor & cursor = Cursor::Get();
     LocalEvent & le = LocalEvent::Get();
     s32 dst = -1;
+    s32 returnValue = -1;
+
+    const Point exitButtonPos( radarArea.x + 32, radarArea.y + radarArea.h - 37 );
+    Button buttonExit( exitButtonPos.x, exitButtonPos.y, ( conf.ExtGameEvilInterface() ? ICN::LGNDXTRE : ICN::LGNDXTRA ), 4, 5 );
+    buttonExit.Draw();
 
     while ( le.HandleEvents() ) {
         const Point & mp = le.GetMouseCursor();
-        dst = gameArea.GetIndexFromMousePoint( mp );
-        if ( 0 > dst )
-            break;
 
-        const Maps::Tiles & tile = world.GetTiles( dst );
+        if ( radarArea & mp ) {
+            cursor.SetThemes( Cursor::POINTER );
 
-        const bool valid = ( ( gameArea.GetArea() & mp ) && ( !tile.isFog( conf.CurrentColor() ) ) && MP2::isClearGroundObject( tile.GetObject() )
-                             && water == world.GetTiles( dst ).isWater() && distance >= Maps::GetApproximateDistance( from, dst ) );
+            le.MousePressLeft( buttonExit ) ? buttonExit.PressDraw() : buttonExit.ReleaseDraw();
+            if ( le.MouseClickLeft( buttonExit ) || HotKeyCloseWindow )
+                break;
+        }
+        else if ( visibleArea & mp ) {
+            dst = gameArea.GetValidTileIdFromPoint( mp );
 
-        cursor.SetThemes( valid ? ( water ? Cursor::BOAT : Cursor::MOVE ) : Cursor::WAR_NONE );
+            bool valid = ( dst >= 0 );
 
-        // exit
-        if ( le.MousePressRight() )
-            break;
-        else if ( le.MouseClickLeft() && valid )
-            return dst;
+            if ( valid ) {
+                const Maps::Tiles & tile = world.GetTiles( dst );
+
+                valid = ( ( spellROI & mp ) && ( !tile.isFog( conf.CurrentColor() ) ) && MP2::isClearGroundObject( tile.GetObject() )
+                          && water == world.GetTiles( dst ).isWater() );
+            }
+
+            cursor.SetThemes( valid ? ( water ? Cursor::BOAT : Cursor::MOVE ) : Cursor::WAR_NONE );
+
+            if ( dst >= 0 && le.MousePressRight() ) {
+                const Maps::Tiles & tile = world.GetTiles( dst );
+                Dialog::QuickInfo( tile );
+            }
+            else if ( le.MouseClickLeft() && valid ) {
+                returnValue = dst;
+                break;
+            }
+        }
+        else {
+            cursor.SetThemes( Cursor::POINTER );
+        }
 
         // redraw cursor
         if ( !cursor.isVisible() ) {
@@ -255,5 +307,14 @@ s32 Interface::Basic::GetDimensionDoorDestination( s32 from, u32 distance, bool 
         }
     }
 
-    return -1;
+    cursor.Hide();
+
+    if ( isFadingEnabled )
+        top.Blit( Point( visibleArea.x, visibleArea.y ), display );
+
+    back.Restore();
+    cursor.Show();
+    display.Flip();
+
+    return returnValue;
 }

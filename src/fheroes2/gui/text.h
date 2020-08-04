@@ -35,7 +35,9 @@ namespace Font
         SMALL = 0x01,
         BIG = 0x02,
         YELLOW_BIG = 0x04,
-        YELLOW_SMALL = 0x08
+        YELLOW_SMALL = 0x08,
+        GRAY_BIG = 0x10,
+        GRAY_SMALL = 0x20
     };
 }
 enum
@@ -144,11 +146,11 @@ public:
 
     int w( void ) const
     {
-        return gw;
+        return static_cast<int>( gw );
     }
     int h( void ) const
     {
-        return gh;
+        return static_cast<int>( gh );
     }
 
     void Blit( s32, s32, Surface & sf = Display::Get() ) const;
@@ -226,7 +228,7 @@ public:
     {
         return Rect::h;
     }
-    u32 row( void ) const
+    size_t row( void ) const
     {
         return messages.size();
     }

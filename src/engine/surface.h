@@ -22,6 +22,7 @@
 #ifndef H2SURFACE_H
 #define H2SURFACE_H
 
+#include <map>
 #include <string>
 
 #include "rect.h"
@@ -48,6 +49,11 @@ public:
     bool operator!=( const RGBA & col ) const
     {
         return pack() != col.pack();
+    }
+
+    bool operator<( const RGBA & col ) const
+    {
+        return pack() < col.pack();
     }
 
     int r( void ) const;
@@ -90,8 +96,8 @@ public:
     Surface( const Size & sz, u32 bpp, bool amask );
     Surface( const Size &, const SurfaceFormat & );
     Surface( const std::string & );
-    Surface( const void * pixels, u32 width, u32 height, u32 bytes_per_pixel /* 1, 2, 3, 4 */, bool amask ); /* agg: create raw tile */
-    Surface( const Surface & );
+    Surface( const void * pixels, u32 width, u32 height, u32 bytes_per_pixel /* 1, 2, 3, 4 */, bool amask, bool useDefaultPalette = true ); /* agg: create raw tile */
+    Surface( const Surface & bs, bool useReference = true );
     Surface( SDL_Surface * );
 
     Surface & operator=( const Surface & );
@@ -133,7 +139,7 @@ public:
 
     void Fill( const RGBA & );
     void FillRect( const Rect &, const RGBA & );
-    void DrawLine( const Point &, const Point &, const RGBA & );
+    void DrawLine( const Point & p1, const Point & p2, const RGBA & color, const Rect & roi = Rect() );
     void DrawPoint( const Point &, const RGBA & );
     void DrawRect( const Rect &, const RGBA & );
     void DrawBorder( const RGBA &, bool solid = true );
@@ -148,7 +154,11 @@ public:
     Surface RenderContour( const RGBA & ) const;
     Surface RenderGrayScale( void ) const;
     Surface RenderSepia( void ) const;
+    Surface RenderBoxBlur( int blurRadius, int colorChange = 0, bool redTint = false ) const;
+    Surface RenderDeathWave( int position, int waveLength, int waveHeight ) const;
+    Surface RenderRippleEffect( int frame, double scaleX = 0.05, double waveFrequency = 20.0 ) const;
     Surface RenderChangeColor( const RGBA &, const RGBA & ) const;
+    Surface RenderChangeColor( const std::map<RGBA, RGBA> & colorPairs ) const;
     Surface RenderSurface( const Rect & srt, const Size & ) const;
     Surface RenderSurface( const Size & ) const;
 
@@ -160,10 +170,31 @@ public:
     static void SetDefaultColorKey( int, int, int );
     static void Swap( Surface &, Surface & );
 
-    void SetAlphaMod( int );
+    // Be aware that this affects all surfaces which have copy if this one
+    // Use makeCopy flag to create another surface within the call
+    void SetAlphaMod( int level, bool makeCopy );
+
+    bool SetColors( const std::vector<uint8_t> & indexes, const std::vector<uint32_t> & colors, bool reflect );
+
+    bool GenerateContour( const std::vector<uint8_t> & indexes, uint32_t value, bool reflect );
+
+    static Surface Blend( const Surface & first, const Surface & second, uint8_t ratio );
+
+    // Gamma correction works by formula:
+    // output = A * ((input / 255) ^ gamma) * 255, where A - multiplication, gamma - power base. Both values must be greater than 0
+    // Usually people set A as 1
+    bool GammaCorrection( double a, double gamma );
+
+    // This is only for 8-bit images like TIL
+    void ResetPalette();
+
+    void SetPalette( const std::vector<SDL_Color> & colors );
 
 protected:
     static void FreeSurface( Surface & );
+
+    // Only for 32-bit images with alpha channel and SDL 1 support
+    Surface ModifyAlphaChannel( uint32_t alpha ) const;
 
     bool isDisplay( void ) const;
 
@@ -186,12 +217,14 @@ protected:
     void SetPixel2( s32 x, s32 y, u32 color );
     void SetPixel1( s32 x, s32 y, u32 color );
     void SetPixel( int x, int y, u32 );
+    void SetRawPixel( int position, uint32_t pixel );
 
     u32 GetPixel4( s32 x, s32 y ) const;
     u32 GetPixel3( s32 x, s32 y ) const;
     u32 GetPixel2( s32 x, s32 y ) const;
     u32 GetPixel1( s32 x, s32 y ) const;
     u32 GetPixel( int x, int y ) const;
+    uint32_t GetRawPixelValue( int position ) const;
 
     SDL_Surface * surface;
     bool _isDisplay;

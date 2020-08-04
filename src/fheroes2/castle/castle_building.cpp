@@ -89,7 +89,7 @@ void CastleRedrawTownName( const Castle & castle, const Point & dst )
 
 void CastleRedrawCurrentBuilding( const Castle & castle, const Point & dst_pt, const CastleDialog::CacheBuildings & orders, u32 build, u32 flash )
 {
-    u32 & frame = Game::CastleAnimationFrame();
+    const uint32_t frame = Game::CastleAnimationFrame();
 
     Display & display = Display::Get();
     Cursor & cursor = Cursor::Get();
@@ -187,8 +187,9 @@ void CastleRedrawCurrentBuilding( const Castle & castle, const Point & dst_pt, c
     else if ( orders.end() != std::find( orders.begin(), orders.end(), build ) ) {
         LocalEvent & le = LocalEvent::Get();
         int alpha = 1;
+        uint32_t buildFrame = 0;
 
-        while ( le.HandleEvents() && alpha < 250 ) {
+        while ( le.HandleEvents() && alpha < 255 ) {
             if ( Game::AnimateInfrequentDelay( Game::CASTLE_BUILD_DELAY ) ) {
                 cursor.Hide();
 
@@ -200,9 +201,8 @@ void CastleRedrawCurrentBuilding( const Castle & castle, const Point & dst_pt, c
                         CastleRedrawBuildingExtended( castle, dst_pt, build2, frame );
                     }
                     else if ( build2 == build ) {
-                        CastleRedrawBuilding( castle, dst_pt, build2, frame, alpha );
-                        CastleRedrawTownName( castle, dst_pt );
-                        alpha += 10;
+                        CastleRedrawBuilding( castle, dst_pt, build2, buildFrame, alpha );
+                        alpha += 15;
                     }
                 }
 
@@ -211,17 +211,18 @@ void CastleRedrawCurrentBuilding( const Castle & castle, const Point & dst_pt, c
                 cursor.Show();
                 display.Flip();
             }
-            ++frame;
+            ++buildFrame;
         }
 
         cursor.Hide();
     }
-
-    ++frame;
 }
 
 void CastleRedrawBuilding( const Castle & castle, const Point & dst_pt, u32 build, u32 frame, int alpha )
 {
+    if ( build == BUILD_TENT ) // we don't need to draw a tent as it's on the background image
+        return;
+
     const Rect max = CastleGetMaxArea( castle, dst_pt );
 
     // correct build
@@ -238,7 +239,8 @@ void CastleRedrawBuilding( const Castle & castle, const Point & dst_pt, u32 buil
         break;
     }
 
-    const int icn = Castle::GetICNBuilding( build, castle.GetRace() );
+    const int race = castle.GetRace();
+    const int icn = Castle::GetICNBuilding( build, race );
     u32 index = 0;
 
     // correct index (mage guild)
@@ -247,16 +249,16 @@ void CastleRedrawBuilding( const Castle & castle, const Point & dst_pt, u32 buil
         index = 0;
         break;
     case BUILD_MAGEGUILD2:
-        index = Race::NECR == castle.GetRace() ? 6 : 1;
+        index = Race::NECR == race ? 6 : 1;
         break;
     case BUILD_MAGEGUILD3:
-        index = Race::NECR == castle.GetRace() ? 12 : 2;
+        index = Race::NECR == race ? 12 : 2;
         break;
     case BUILD_MAGEGUILD4:
-        index = Race::NECR == castle.GetRace() ? 18 : 3;
+        index = Race::NECR == race ? 18 : 3;
         break;
     case BUILD_MAGEGUILD5:
-        index = Race::NECR == castle.GetRace() ? 24 : 4;
+        index = Race::NECR == race ? 24 : 4;
         break;
     default:
         break;
@@ -265,10 +267,12 @@ void CastleRedrawBuilding( const Castle & castle, const Point & dst_pt, u32 buil
     if ( icn != ICN::UNKNOWN ) {
         // simple first sprite
         Sprite sprite1 = AGG::GetICN( icn, index );
+        if ( Castle::isBuildingCycling( build, race ) ) {
+            AGG::ReplaceColors( sprite1, PAL::GetCyclingPalette( frame ), icn, index, false );
+        }
 
         if ( alpha ) {
-            sprite1.SetSurface( sprite1.GetSurface() );
-            sprite1.SetAlphaMod( alpha );
+            sprite1.SetAlphaMod( alpha, true );
             sprite1.Blit( dst_pt.x + sprite1.x(), dst_pt.y + sprite1.y() );
         }
         else
@@ -279,8 +283,7 @@ void CastleRedrawBuilding( const Castle & castle, const Point & dst_pt, u32 buil
             Sprite sprite2 = AGG::GetICN( icn, index2 );
 
             if ( alpha ) {
-                sprite2.SetSurface( sprite2.GetSurface() );
-                sprite2.SetAlphaMod( alpha );
+                sprite2.SetAlphaMod( alpha, true );
                 sprite2.Blit( dst_pt.x + sprite2.x(), dst_pt.y + sprite2.y() );
             }
             else
@@ -291,6 +294,9 @@ void CastleRedrawBuilding( const Castle & castle, const Point & dst_pt, u32 buil
 
 void CastleRedrawBuildingExtended( const Castle & castle, const Point & dst_pt, u32 build, u32 frame )
 {
+    if ( build == BUILD_TENT ) // we don't need to draw a tent as it's on the background image
+        return;
+
     const Rect max = CastleGetMaxArea( castle, dst_pt );
     int icn = Castle::GetICNBuilding( build, castle.GetRace() );
 
@@ -805,8 +811,8 @@ void CastlePackOrdersBuildings( const Castle & castle, std::vector<building_t> &
         ordersBuildings.push_back( BUILD_RIGHTTURRET );
         ordersBuildings.push_back( BUILD_MOAT );
         ordersBuildings.push_back( BUILD_MARKETPLACE );
-        ordersBuildings.push_back( DWELLING_UPGRADE2 );
         ordersBuildings.push_back( DWELLING_MONSTER2 );
+        ordersBuildings.push_back( DWELLING_UPGRADE2 );
         ordersBuildings.push_back( BUILD_THIEVESGUILD );
         ordersBuildings.push_back( BUILD_TAVERN );
         ordersBuildings.push_back( BUILD_MAGEGUILD1 );
@@ -814,15 +820,15 @@ void CastlePackOrdersBuildings( const Castle & castle, std::vector<building_t> &
         ordersBuildings.push_back( BUILD_MAGEGUILD3 );
         ordersBuildings.push_back( BUILD_MAGEGUILD4 );
         ordersBuildings.push_back( BUILD_MAGEGUILD5 );
-        ordersBuildings.push_back( DWELLING_UPGRADE5 );
         ordersBuildings.push_back( DWELLING_MONSTER5 );
-        ordersBuildings.push_back( DWELLING_UPGRADE6 );
+        ordersBuildings.push_back( DWELLING_UPGRADE5 );
         ordersBuildings.push_back( DWELLING_MONSTER6 );
+        ordersBuildings.push_back( DWELLING_UPGRADE6 );
         ordersBuildings.push_back( DWELLING_MONSTER1 );
-        ordersBuildings.push_back( DWELLING_UPGRADE3 );
         ordersBuildings.push_back( DWELLING_MONSTER3 );
-        ordersBuildings.push_back( DWELLING_UPGRADE4 );
+        ordersBuildings.push_back( DWELLING_UPGRADE3 );
         ordersBuildings.push_back( DWELLING_MONSTER4 );
+        ordersBuildings.push_back( DWELLING_UPGRADE4 );
         ordersBuildings.push_back( BUILD_WELL );
         ordersBuildings.push_back( BUILD_STATUE );
         ordersBuildings.push_back( BUILD_SHIPYARD );
@@ -847,12 +853,12 @@ void CastlePackOrdersBuildings( const Castle & castle, std::vector<building_t> &
         ordersBuildings.push_back( BUILD_TAVERN );
         ordersBuildings.push_back( DWELLING_MONSTER1 );
         ordersBuildings.push_back( BUILD_MARKETPLACE );
-        ordersBuildings.push_back( DWELLING_UPGRADE2 );
         ordersBuildings.push_back( DWELLING_MONSTER2 );
-        ordersBuildings.push_back( DWELLING_UPGRADE4 );
+        ordersBuildings.push_back( DWELLING_UPGRADE2 );
         ordersBuildings.push_back( DWELLING_MONSTER4 );
-        ordersBuildings.push_back( DWELLING_UPGRADE5 );
+        ordersBuildings.push_back( DWELLING_UPGRADE4 );
         ordersBuildings.push_back( DWELLING_MONSTER5 );
+        ordersBuildings.push_back( DWELLING_UPGRADE5 );
         ordersBuildings.push_back( BUILD_WELL );
         ordersBuildings.push_back( BUILD_STATUE );
         ordersBuildings.push_back( BUILD_SHIPYARD );
@@ -871,19 +877,19 @@ void CastlePackOrdersBuildings( const Castle & castle, std::vector<building_t> &
         ordersBuildings.push_back( BUILD_LEFTTURRET );
         ordersBuildings.push_back( BUILD_RIGHTTURRET );
         ordersBuildings.push_back( BUILD_MOAT );
-        ordersBuildings.push_back( DWELLING_UPGRADE3 );
         ordersBuildings.push_back( DWELLING_MONSTER3 );
+        ordersBuildings.push_back( DWELLING_UPGRADE3 );
         ordersBuildings.push_back( BUILD_SHIPYARD );
         ordersBuildings.push_back( BUILD_MARKETPLACE );
-        ordersBuildings.push_back( DWELLING_UPGRADE2 );
         ordersBuildings.push_back( DWELLING_MONSTER2 );
+        ordersBuildings.push_back( DWELLING_UPGRADE2 );
         ordersBuildings.push_back( BUILD_THIEVESGUILD );
         ordersBuildings.push_back( DWELLING_MONSTER1 );
         ordersBuildings.push_back( BUILD_TAVERN );
         ordersBuildings.push_back( BUILD_STATUE );
         ordersBuildings.push_back( BUILD_WEL2 );
-        ordersBuildings.push_back( DWELLING_UPGRADE4 );
         ordersBuildings.push_back( DWELLING_MONSTER4 );
+        ordersBuildings.push_back( DWELLING_UPGRADE4 );
         ordersBuildings.push_back( BUILD_WELL );
         ordersBuildings.push_back( DWELLING_MONSTER5 );
         break;
@@ -909,17 +915,17 @@ void CastlePackOrdersBuildings( const Castle & castle, std::vector<building_t> &
         ordersBuildings.push_back( DWELLING_MONSTER1 );
         ordersBuildings.push_back( BUILD_WEL2 );
         ordersBuildings.push_back( BUILD_SPEC );
-        ordersBuildings.push_back( DWELLING_UPGRADE4 );
         ordersBuildings.push_back( DWELLING_MONSTER4 );
+        ordersBuildings.push_back( DWELLING_UPGRADE4 );
         ordersBuildings.push_back( DWELLING_MONSTER2 );
-        ordersBuildings.push_back( DWELLING_UPGRADE7 );
-        ordersBuildings.push_back( DWELLING_UPGRADE6 );
         ordersBuildings.push_back( DWELLING_MONSTER6 );
+        ordersBuildings.push_back( DWELLING_UPGRADE6 );
+        ordersBuildings.push_back( DWELLING_UPGRADE7 );
         ordersBuildings.push_back( BUILD_WELL );
         break;
     case Race::WZRD:
-        ordersBuildings.push_back( DWELLING_UPGRADE6 );
         ordersBuildings.push_back( DWELLING_MONSTER6 );
+        ordersBuildings.push_back( DWELLING_UPGRADE6 );
         ordersBuildings.push_back( BUILD_TENT );
         ordersBuildings.push_back( BUILD_CASTLE );
         ordersBuildings.push_back( BUILD_LEFTTURRET );
@@ -932,10 +938,10 @@ void CastlePackOrdersBuildings( const Castle & castle, std::vector<building_t> &
         ordersBuildings.push_back( BUILD_SHIPYARD );
         ordersBuildings.push_back( BUILD_WELL );
         ordersBuildings.push_back( BUILD_SPEC );
-        ordersBuildings.push_back( DWELLING_UPGRADE3 );
         ordersBuildings.push_back( DWELLING_MONSTER3 );
-        ordersBuildings.push_back( DWELLING_UPGRADE5 );
+        ordersBuildings.push_back( DWELLING_UPGRADE3 );
         ordersBuildings.push_back( DWELLING_MONSTER5 );
+        ordersBuildings.push_back( DWELLING_UPGRADE5 );
         ordersBuildings.push_back( BUILD_MAGEGUILD1 );
         ordersBuildings.push_back( BUILD_MAGEGUILD2 );
         ordersBuildings.push_back( BUILD_MAGEGUILD3 );
@@ -960,14 +966,14 @@ void CastlePackOrdersBuildings( const Castle & castle, std::vector<building_t> &
         ordersBuildings.push_back( BUILD_MOAT );
         ordersBuildings.push_back( DWELLING_MONSTER1 );
         ordersBuildings.push_back( BUILD_THIEVESGUILD );
-        ordersBuildings.push_back( DWELLING_UPGRADE3 );
         ordersBuildings.push_back( DWELLING_MONSTER3 );
-        ordersBuildings.push_back( DWELLING_UPGRADE5 );
+        ordersBuildings.push_back( DWELLING_UPGRADE3 );
         ordersBuildings.push_back( DWELLING_MONSTER5 );
-        ordersBuildings.push_back( DWELLING_UPGRADE2 );
+        ordersBuildings.push_back( DWELLING_UPGRADE5 );
         ordersBuildings.push_back( DWELLING_MONSTER2 );
-        ordersBuildings.push_back( DWELLING_UPGRADE4 );
+        ordersBuildings.push_back( DWELLING_UPGRADE2 );
         ordersBuildings.push_back( DWELLING_MONSTER4 );
+        ordersBuildings.push_back( DWELLING_UPGRADE4 );
         ordersBuildings.push_back( BUILD_MAGEGUILD1 );
         ordersBuildings.push_back( BUILD_MAGEGUILD2 );
         ordersBuildings.push_back( BUILD_MAGEGUILD3 );

@@ -38,6 +38,9 @@ LocalEvent::LocalEvent()
     , keyboard_filter_func( NULL )
     , clock_delay( TAP_DELAY_EMULATE )
     , loop_delay( 1 )
+    , _isHiddenWindow( false )
+    , _isMusicPaused( false )
+    , _isSoundPaused( false )
 {
 #ifdef WITHOUT_MOUSE
     emulate_mouse = false;
@@ -432,12 +435,31 @@ LocalEvent & LocalEvent::Get( void )
     return le;
 }
 
-bool LocalEvent::HandleEvents( bool delay )
+LocalEvent & LocalEvent::GetClean()
 {
+    LocalEvent & le = Get();
+    le.ResetModes( KEY_PRESSED );
+    le.ResetModes( MOUSE_MOTION );
+    le.ResetModes( MOUSE_PRESSED );
+    le.ResetModes( CLICK_LEFT );
+    le.ResetModes( CLICK_RIGHT );
+    le.ResetModes( CLICK_MIDDLE );
+    le.ResetModes( CLICK_MIDDLE );
+    return le;
+}
+
+bool LocalEvent::HandleEvents( bool delay, bool allowExit )
+{
+    if ( Display::isRedrawRequired() ) {
+        Display::Get().Flip();
+    }
+
     SDL_Event event;
 
     ResetModes( MOUSE_MOTION );
     ResetModes( KEY_PRESSED );
+
+    mouse_wm = Point();
 
     while ( SDL_PollEvent( &event ) ) {
         switch ( event.type ) {
@@ -445,13 +467,21 @@ bool LocalEvent::HandleEvents( bool delay )
         case SDL_WINDOWEVENT:
             if ( Mixer::isValid() ) {
                 if ( event.window.event == SDL_WINDOWEVENT_HIDDEN ) {
+                    _isHiddenWindow = true;
+                    _isMusicPaused = Music::isPaused();
+                    _isSoundPaused = Mixer::isPaused( -1 );
                     Mixer::Pause();
                     Music::Pause();
                     loop_delay = 100;
                 }
                 else if ( event.window.event == SDL_WINDOWEVENT_SHOWN ) {
-                    Mixer::Resume();
-                    Music::Resume();
+                    if ( _isHiddenWindow ) {
+                        if ( !_isMusicPaused )
+                            Music::Resume();
+                        if ( !_isSoundPaused )
+                            Mixer::Resume();
+                        _isHiddenWindow = false;
+                    }
                     loop_delay = 1;
                 }
             }
@@ -462,13 +492,21 @@ bool LocalEvent::HandleEvents( bool delay )
                 if ( Mixer::isValid() ) {
                     // iconify
                     if ( 0 == event.active.gain ) {
+                        _isHiddenWindow = true;
+                        _isMusicPaused = Music::isPaused();
+                        _isSoundPaused = Mixer::isPaused( -1 );
                         Mixer::Pause();
                         Music::Pause();
                         loop_delay = 100;
                     }
                     else {
-                        Mixer::Resume();
-                        Music::Resume();
+                        if ( _isHiddenWindow ) {
+                            if ( !_isMusicPaused )
+                                Music::Resume();
+                            if ( !_isSoundPaused )
+                                Mixer::Resume();
+                            _isHiddenWindow = false;
+                        }
                         loop_delay = 1;
                     }
                 }
@@ -492,10 +530,21 @@ bool LocalEvent::HandleEvents( bool delay )
             HandleMouseButtonEvent( event.button );
             break;
 
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+        case SDL_MOUSEWHEEL:
+            HandleMouseWheelEvent( event.wheel );
+            break;
+#endif
+
         // exit
         case SDL_QUIT:
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+        case SDL_WINDOWEVENT_CLOSE:
+#endif
             // Error::Except(__FUNCTION__, "SDL_QUIT");
-            return false; // try to perform clear exit to catch all memory leaks, for example
+            if ( allowExit )
+                return false; // try to perform clear exit to catch all memory leaks, for example
+            break;
 
         default:
             break;
@@ -503,8 +552,7 @@ bool LocalEvent::HandleEvents( bool delay )
 
         // need for wheel up/down delay
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-        if ( SDL_MOUSEWHEEL == event.type )
-            break;
+        // Use HandleMouseWheel instead
 #else
         if ( SDL_BUTTON_WHEELDOWN == event.button.button || SDL_BUTTON_WHEELUP == event.button.button )
             break;
@@ -606,15 +654,12 @@ void LocalEvent::HandleMouseButtonEvent( const SDL_MouseButtonEvent & button )
     if ( modes & MOUSE_PRESSED )
         switch ( button.button ) {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-        case SDL_BUTTON_X1:
-        case SDL_BUTTON_X2:
 #else
         case SDL_BUTTON_WHEELDOWN:
         case SDL_BUTTON_WHEELUP:
-#endif
             mouse_pm = mouse_cu;
             break;
-
+#endif
         case SDL_BUTTON_LEFT:
             mouse_pl = mouse_cu;
             SetModes( CLICK_LEFT );
@@ -642,14 +687,12 @@ void LocalEvent::HandleMouseButtonEvent( const SDL_MouseButtonEvent & button )
     else
         switch ( button.button ) {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-        case SDL_BUTTON_X1:
-        case SDL_BUTTON_X2:
 #else
         case SDL_BUTTON_WHEELDOWN:
         case SDL_BUTTON_WHEELUP:
-#endif
             mouse_rm = mouse_cu;
             break;
+#endif
 
         case SDL_BUTTON_LEFT:
             mouse_rl = mouse_cu;
@@ -672,6 +715,16 @@ void LocalEvent::HandleMouseButtonEvent( const SDL_MouseButtonEvent & button )
             break;
         }
 }
+
+#if SDL_VERSION_ATLEAST( 2, 0, 0 )
+void LocalEvent::HandleMouseWheelEvent( const SDL_MouseWheelEvent & wheel )
+{
+    SetModes( MOUSE_WHEEL );
+    mouse_rm = mouse_cu;
+    mouse_wm.x = wheel.x;
+    mouse_wm.y = wheel.y;
+}
+#endif
 
 bool LocalEvent::MouseClickLeft( void )
 {
@@ -737,7 +790,7 @@ bool LocalEvent::MouseClickRight( const Rect & rt )
 bool LocalEvent::MouseWheelUp( void ) const
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-    return ( modes & MOUSE_PRESSED ) && SDL_BUTTON_X1 == mouse_button;
+    return ( modes & MOUSE_WHEEL ) && mouse_wm.y > 0;
 #else
     return ( modes & MOUSE_PRESSED ) && SDL_BUTTON_WHEELUP == mouse_button;
 #endif
@@ -746,7 +799,7 @@ bool LocalEvent::MouseWheelUp( void ) const
 bool LocalEvent::MouseWheelDn( void ) const
 {
 #if SDL_VERSION_ATLEAST( 2, 0, 0 )
-    return ( modes & MOUSE_PRESSED ) && SDL_BUTTON_X2 == mouse_button;
+    return ( modes & MOUSE_WHEEL ) && mouse_wm.y < 0;
 #else
     return ( modes & MOUSE_PRESSED ) && SDL_BUTTON_WHEELDOWN == mouse_button;
 #endif

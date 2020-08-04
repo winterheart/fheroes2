@@ -166,6 +166,11 @@ void Battle::Units::SortWeakest( void )
     std::sort( begin(), end(), Army::WeakestTroop );
 }
 
+void Battle::Units::SortArchers( void )
+{
+    std::sort( begin(), end(), Army::ArchersFirst );
+}
+
 Battle::Unit * Battle::Units::FindUID( u32 pid )
 {
     iterator it = std::find_if( begin(), end(), std::bind2nd( std::mem_fun( &Unit::isUID ), pid ) );
@@ -392,7 +397,7 @@ bool Battle::Force::animateIdleUnits()
         if ( unit.isValid() && !unit.Modes( SP_BLIND | IS_PARALYZE_MAGIC ) ) {
             if ( unit.isIdling() ) {
                 if ( unit.isFinishAnimFrame() ) {
-                    redrawNeeded = redrawNeeded || unit.SwitchAnimation( Monster_Info::STATIC );
+                    redrawNeeded = unit.SwitchAnimation( Monster_Info::STATIC ) || redrawNeeded;
                 }
                 else {
                     unit.IncreaseAnimFrame();
@@ -401,11 +406,24 @@ bool Battle::Force::animateIdleUnits()
             }
             // checkIdleDelay() sets and checks unit's internal timer if we're ready to switch to next one
             else if ( unit.GetAnimationState() == Monster_Info::STATIC && unit.checkIdleDelay() ) {
-                redrawNeeded = redrawNeeded || unit.SwitchAnimation( Monster_Info::IDLE );
+                redrawNeeded = unit.SwitchAnimation( Monster_Info::IDLE ) || redrawNeeded;
             }
         }
     }
     return redrawNeeded;
+}
+
+void Battle::Force::resetIdleAnimation()
+{
+    for ( Force::iterator it = begin(); it != end(); ++it ) {
+        Unit & unit = **it;
+
+        // check if alive and not paralyzed
+        if ( unit.isValid() && !unit.Modes( SP_BLIND | IS_PARALYZE_MAGIC ) ) {
+            if ( unit.GetAnimationState() == Monster_Info::STATIC )
+                unit.checkIdleDelay();
+        }
+    }
 }
 
 bool Battle::Force::HasMonster( const Monster & mons ) const

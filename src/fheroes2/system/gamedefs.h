@@ -25,7 +25,7 @@
 #include "engine.h"
 
 #define MAJOR_VERSION 0
-#define MINOR_VERSION 7
+#define MINOR_VERSION 8
 
 #ifdef WITH_XML
 #include "xmlccwrap.h"
@@ -64,5 +64,6 @@
 
 // ai/hero speed
 #define DEFAULT_SPEED_DELAY 5
+#define DEFAULT_BATTLE_SPEED 4
 
 #endif

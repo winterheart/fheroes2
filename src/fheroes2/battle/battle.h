@@ -71,7 +71,6 @@ namespace Battle
     StreamBase & operator>>( StreamBase &, Result & );
 
     Result Loader( Army &, Army &, s32 );
-    void UpdateMonsterSpriteAnimation( const std::string & );
     void UpdateMonsterAttributes( const std::string & );
 
     struct TargetInfo
@@ -89,7 +88,7 @@ namespace Battle
         {}
 
         bool operator==( const TargetInfo & ) const;
-        bool isFinishAnimFrame( void ) const;
+        static bool isFinishAnimFrame( const TargetInfo & info );
     };
 
     StreamBase & operator<<( StreamBase &, const TargetInfo & );

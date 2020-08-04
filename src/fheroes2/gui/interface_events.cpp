@@ -35,7 +35,6 @@
 #include "heroes.h"
 #include "kingdom.h"
 #include "m82.h"
-#include "pocketpc.h"
 #include "settings.h"
 #include "world.h"
 
@@ -51,10 +50,13 @@ void Interface::Basic::CalculateHeroPath( Heroes * hero, s32 destinationIdx )
     if ( destinationIdx == -1 )
         destinationIdx = path.GetDestinedIndex(); // returns -1 at the time of launching new game (because of no path history)
     if ( destinationIdx != -1 ) {
-        path.Calculate( destinationIdx );
-        DEBUG( DBG_GAME, DBG_TRACE, hero->GetName() << ", route: " << path.String() );
+        const uint32_t distance = path.Calculate( destinationIdx );
+        DEBUG( DBG_GAME, DBG_TRACE, hero->GetName() << ", distance: " << distance << ", route: " << path.String() );
         gameArea.SetRedraw();
-        Cursor::Get().SetThemes( GetCursorTileIndex( destinationIdx ) );
+
+        LocalEvent & le = LocalEvent::Get();
+        const int32_t cursorIndex = gameArea.GetValidTileIdFromPoint( le.GetMouseCursor() );
+        Cursor::Get().SetThemes( GetCursorTileIndex( cursorIndex ) );
         Interface::Basic::Get().buttonsArea.Redraw();
     }
 }
@@ -124,10 +126,16 @@ void Interface::Basic::EventNextHero( void )
 
     if ( GetFocusHeroes() ) {
         KingdomHeroes::const_iterator it = std::find( myHeroes.begin(), myHeroes.end(), GetFocusHeroes() );
-        ++it;
-        if ( it == myHeroes.end() )
-            it = myHeroes.begin();
-        SetFocus( *it );
+        KingdomHeroes::const_iterator currentHero = it;
+        do {
+            ++it;
+            if ( it == myHeroes.end() )
+                it = myHeroes.begin();
+            if ( ( *it )->MayStillMove() ) {
+                SetFocus( *it );
+                break;
+            }
+        } while ( it != currentHero );
     }
     else {
         ResetFocus( GameFocus::HEROES );
@@ -146,11 +154,7 @@ void Interface::Basic::EventContinueMovement( void )
 void Interface::Basic::EventKingdomInfo( void )
 {
     Kingdom & myKingdom = world.GetKingdom( Settings::Get().CurrentColor() );
-
-    if ( Settings::Get().QVGA() )
-        PocketPC::KingdomOverviewDialog( myKingdom );
-    else
-        myKingdom.OverviewDialog();
+    myKingdom.OverviewDialog();
 
     iconsPanel.SetRedraw();
 }
@@ -220,18 +224,6 @@ void Interface::Basic::EventSystemDialog( void )
 
     // Change and save system settings
     const int changes = Dialog::SystemOptions();
-
-    // change scroll
-    if ( 0x10 & changes ) {
-        // hardcore reset pos
-        gameArea.SetCenter( 0, 0 );
-        if ( GetFocusType() != GameFocus::UNSEL )
-            gameArea.SetCenter( GetFocusCenter() );
-        gameArea.SetRedraw();
-
-        if ( conf.ExtGameHideInterface() )
-            controlPanel.ResetTheme();
-    }
 
     // interface themes
     if ( 0x08 & changes ) {
@@ -369,9 +361,10 @@ int Interface::Basic::EventDigArtifact( void )
             else
                 Dialog::Message( "", _( "Try searching on clear ground." ), Font::BIG, Dialog::OK );
         }
+        else {
+            Dialog::Message( "", _( "Digging for artifacts requires a whole day, try again tomorrow." ), Font::BIG, Dialog::OK );
+        }
     }
-    else
-        Dialog::Message( "", _( "Digging for artifacts requires a whole day, try again tomorrow." ), Font::BIG, Dialog::OK );
 
     return Game::CANCEL;
 }

@@ -22,11 +22,6 @@
 
 #include <algorithm>
 
-#ifdef BUILD_RELEASE
-#define NDEBUG
-#endif
-#include <assert.h>
-
 #include "game.h"
 #include "game_delays.h"
 #include "gamedefs.h"
@@ -68,17 +63,20 @@ namespace Game
 {
     void AnimateDelaysInitialize( void );
 
+    static const double battleSpeedAdjustment = 1.0 / static_cast<double>( 10 - DEFAULT_BATTLE_SPEED );
+
     TimeDelay delays[] = {20, // SCROLL_DELAY
                           250, // MAIN_MENU_DELAY
                           250, // MAPS_DELAY
                           200, // CASTLE_TAVERN_DELAY
-                          150, // CASTLE_AROUND_DELAY
+                          200, // CASTLE_AROUND_DELAY
                           130, // CASTLE_BUYHERO_DELAY
                           130, // CASTLE_BUILD_DELAY
+                          150, // CASTLE_UNIT_DELAY
                           40, // HEROES_FADE_DELAY
                           40, // HEROES_PICKUP_DELAY
                           50, // PUZZLE_FADE_DELAY
-                          100, // BATTLE_DIALOG_DELAY
+                          75, // BATTLE_DIALOG_DELAY
                           120, // BATTLE_FRAME_DELAY
                           40, // BATTLE_MISSILE_DELAY
                           90, // BATTLE_SPELL_DELAY
@@ -88,9 +86,11 @@ namespace Game
                           40, // BATTLE_CATAPULT3_DELAY // cloud
                           90, // BATTLE_BRIDGE_DELAY
                           150, // BATTLE_IDLE_DELAY
-                          500, // BATTLE_OPPONENTS_DELAY
-                          300, // BATTLE_FLAGS_DELAY
+                          350, // BATTLE_OPPONENTS_DELAY
+                          250, // BATTLE_FLAGS_DELAY
                           800, // BATTLE_POPUP_DELAY
+                          220, // BATTLE_COLOR_CYCLE_DELAY
+                          160, // BATTLE_SELECTED_UNIT_DELAY
                           300, // AUTOHIDE_STATUS_DELAY
                           40, // CURRENT_HERO_DELAY
                           40, // CURRENT_AI_DELAY
@@ -100,7 +100,9 @@ namespace Game
 
 void Game::AnimateDelaysInitialize( void )
 {
-    std::for_each( &delays[0], &delays[LAST_DELAY], std::mem_fun_ref( &TimeDelay::Reset ) );
+    for ( size_t id = 0; id < LAST_DELAY; ++id ) {
+        delays[id].Reset();
+    }
     UpdateGameSpeed();
 }
 
@@ -126,28 +128,26 @@ void Game::UpdateGameSpeed( void )
 
     const int heroSpeed = conf.HeroesMoveSpeed() - DEFAULT_SPEED_DELAY;
     const int aiSpeed = conf.AIMoveSpeed() - DEFAULT_SPEED_DELAY;
-    const int battleSpeed = conf.BattleSpeed() - DEFAULT_SPEED_DELAY;
-
-    // assert to make sure we won't overflow
-    assert( heroSpeed <= DEFAULT_SPEED_DELAY );
-    assert( aiSpeed <= DEFAULT_SPEED_DELAY );
-    assert( battleSpeed <= DEFAULT_SPEED_DELAY );
 
     delays[CURRENT_HERO_DELAY] = 40 - heroSpeed * 8;
     delays[CURRENT_AI_DELAY] = 40 - aiSpeed * 8;
 
-    delays[BATTLE_FRAME_DELAY] = 120 - battleSpeed * 20;
-    delays[BATTLE_MISSILE_DELAY] = 40 - battleSpeed * 7;
-    delays[BATTLE_SPELL_DELAY] = 90 - battleSpeed * 17;
-    delays[BATTLE_IDLE_DELAY] = 150 - battleSpeed * 20;
-    delays[BATTLE_DISRUPTING_DELAY] = 20 - battleSpeed * 3;
-    delays[BATTLE_CATAPULT_DELAY] = 90 - battleSpeed * 17;
-    delays[BATTLE_CATAPULT2_DELAY] = 40 - battleSpeed * 7;
-    delays[BATTLE_CATAPULT3_DELAY] = 40 - battleSpeed * 7;
-    delays[BATTLE_BRIDGE_DELAY] = 90 - battleSpeed * 17;
+    const double adjustedBattleSpeed = ( 10 - conf.BattleSpeed() ) * battleSpeedAdjustment;
+    delays[BATTLE_FRAME_DELAY] = 120 * adjustedBattleSpeed;
+    delays[BATTLE_MISSILE_DELAY] = 40 * adjustedBattleSpeed;
+    delays[BATTLE_SPELL_DELAY] = 75 * adjustedBattleSpeed;
+    delays[BATTLE_IDLE_DELAY] = 150 * adjustedBattleSpeed;
+    delays[BATTLE_DISRUPTING_DELAY] = 25 * adjustedBattleSpeed;
+    delays[BATTLE_CATAPULT_DELAY] = 90 * adjustedBattleSpeed;
+    delays[BATTLE_CATAPULT2_DELAY] = 40 * adjustedBattleSpeed;
+    delays[BATTLE_CATAPULT3_DELAY] = 40 * adjustedBattleSpeed;
+    delays[BATTLE_BRIDGE_DELAY] = 90 * adjustedBattleSpeed;
+    delays[BATTLE_OPPONENTS_DELAY] = 350 * adjustedBattleSpeed;
+
+    delays[BATTLE_FLAGS_DELAY] = ( adjustedBattleSpeed < 0.1 ) ? 25 : 250 * adjustedBattleSpeed;
 }
 
 uint32_t Game::ApplyBattleSpeed( uint32_t delay )
 {
-    return static_cast<uint32_t>( 10 - Settings::Get().BattleSpeed() ) * ( delay / DEFAULT_SPEED_DELAY );
+    return static_cast<uint32_t>( battleSpeedAdjustment * ( 10 - Settings::Get().BattleSpeed() ) * delay );
 }

@@ -240,7 +240,7 @@ std::string ShowLocalVisitObjectInfo( const Maps::Tiles & tile, const Heroes * h
     std::string str = MP2::StringObject( tile.GetObject() );
     if ( hero ) {
         str.append( "\n" );
-        str.append( hero->isVisited( tile.GetObject() ) ? _( "(already visited)" ) : _( "(not visited)" ) );
+        str.append( hero->isObjectTypeVisited( tile.GetObject() ) ? _( "(already visited)" ) : _( "(not visited)" ) );
     }
 
     return str;
@@ -337,31 +337,29 @@ void Dialog::QuickInfo( const Maps::Tiles & tile )
     // image box
     const Sprite & box = AGG::GetICN( qwikinfo, 0 );
     const Interface::GameArea & gamearea = Interface::Basic::Get().GetGameArea();
-    const Rect ar( BORDERWIDTH, BORDERWIDTH, gamearea.GetArea().w, gamearea.GetArea().h );
+    const Rect ar( gamearea.GetROI() );
 
     LocalEvent & le = LocalEvent::Get();
     const Point & mp = le.GetMouseCursor();
 
     Rect pos;
-    s32 mx = ( mp.x - BORDERWIDTH ) / TILEWIDTH;
-    mx *= TILEWIDTH;
-    s32 my = ( mp.y - BORDERWIDTH ) / TILEWIDTH;
-    my *= TILEWIDTH;
+    const s32 mx = mp.x;
+    const s32 my = mp.y;
 
     // top left
     if ( mx <= ar.x + ar.w / 2 && my <= ar.y + ar.h / 2 )
-        pos = Rect( mx + TILEWIDTH, my + TILEWIDTH, box.w(), box.h() );
+        pos = Rect( mx, my + TILEWIDTH / 2, box.w(), box.h() );
     else
         // top right
         if ( mx > ar.x + ar.w / 2 && my <= ar.y + ar.h / 2 )
-        pos = Rect( mx - box.w(), my + TILEWIDTH, box.w(), box.h() );
+        pos = Rect( mx - box.w() - TILEWIDTH / 2, my + TILEWIDTH / 2, box.w(), box.h() );
     else
         // bottom left
         if ( mx <= ar.x + ar.w / 2 && my > ar.y + ar.h / 2 )
-        pos = Rect( mx + TILEWIDTH, my - box.h(), box.w(), box.h() );
+        pos = Rect( mx, my - box.h(), box.w(), box.h() );
     else
         // bottom right
-        pos = Rect( mx - box.w(), my - box.h(), box.w(), box.h() );
+        pos = Rect( mx - box.w() - TILEWIDTH / 2, my - box.h(), box.w(), box.h() );
 
     SpriteBack back( pos );
     box.Blit( pos.x, pos.y );
@@ -535,7 +533,7 @@ void Dialog::QuickInfo( const Castle & castle )
     // image box
     const Sprite & box = AGG::GetICN( qwiktown, 0 );
     const Interface::GameArea & gamearea = Interface::Basic::Get().GetGameArea();
-    const Rect ar( BORDERWIDTH, BORDERWIDTH, gamearea.GetArea().w, gamearea.GetArea().h );
+    const Rect ar( gamearea.GetROI() );
 
     LocalEvent & le = LocalEvent::Get();
     const Point & mp = le.GetMouseCursor();
@@ -721,7 +719,7 @@ void Dialog::QuickInfo( const Heroes & hero )
     // image box
     const Sprite & box = AGG::GetICN( qwikhero, 0 );
     const Interface::GameArea & gamearea = Interface::Basic::Get().GetGameArea();
-    const Rect ar( BORDERWIDTH, BORDERWIDTH, gamearea.GetArea().w, gamearea.GetArea().h );
+    const Rect ar( gamearea.GetROI() );
 
     LocalEvent & le = LocalEvent::Get();
     const Point & mp = le.GetMouseCursor();
@@ -759,8 +757,12 @@ void Dialog::QuickInfo( const Heroes & hero )
     Text text;
     std::string message;
 
+    const bool isFriend = hero.isFriends( conf.CurrentColor() );
+    const bool isUnderIdentifyHeroSpell = world.GetKingdom( conf.CurrentColor() ).Modes( Kingdom::IDENTIFYHERO );
+    const bool showFullInfo = isFriend || isUnderIdentifyHeroSpell;
+
     // heroes name
-    if ( hero.isFriends( conf.CurrentColor() ) ) {
+    if ( showFullInfo ) {
         message = _( "%{name} ( Level %{level} )" );
         StringReplace( message, "%{name}", hero.GetName() );
         StringReplace( message, "%{level}", hero.GetLevel() );
@@ -781,7 +783,7 @@ void Dialog::QuickInfo( const Heroes & hero )
     }
 
     // luck
-    if ( hero.isFriends( conf.CurrentColor() ) ) {
+    if ( showFullInfo ) {
         const s32 luck = hero.GetLuckWithModificators( NULL );
         const Sprite & sprite = AGG::GetICN( ICN::MINILKMR, ( 0 > luck ? 0 : ( 0 < luck ? 1 : 2 ) ) );
         u32 count = ( 0 == luck ? 1 : std::abs( luck ) );
@@ -795,7 +797,7 @@ void Dialog::QuickInfo( const Heroes & hero )
     }
 
     // morale
-    if ( hero.isFriends( conf.CurrentColor() ) ) {
+    if ( showFullInfo ) {
         const s32 morale = hero.GetMoraleWithModificators( NULL );
         const Sprite & sprite = AGG::GetICN( ICN::MINILKMR, ( 0 > morale ? 3 : ( 0 < morale ? 4 : 5 ) ) );
         u32 count = ( 0 == morale ? 1 : std::abs( morale ) );
@@ -847,8 +849,7 @@ void Dialog::QuickInfo( const Heroes & hero )
     dst_pt.x = cur_rt.x + ( cur_rt.w + 40 ) / 2;
     r_flag.Blit( dst_pt );
 
-    // TODO: check if under effect of View heroes spell; then show enemies too
-    if ( hero.isFriends( conf.CurrentColor() ) ) {
+    if ( showFullInfo ) {
         // attack
         text.Set( std::string( _( "Attack" ) ) + ":" );
         dst_pt.x = cur_rt.x + 10;

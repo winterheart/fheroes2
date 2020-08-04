@@ -149,7 +149,7 @@ void Castle::OpenWell( void )
                 u32 can_recruit;
                 std::string str;
 
-                for ( std::vector<u32>::const_iterator it = alldwellings.begin(); it != alldwellings.end(); ++it )
+                for ( std::vector<u32>::const_iterator it = alldwellings.begin(); it != alldwellings.end(); ++it ) {
                     if ( 0 != ( can_recruit = HowManyRecruitMonster( *this, *it, total, cur ) ) ) {
                         results.push_back( dwelling_t( *it, can_recruit ) );
                         total += cur;
@@ -159,14 +159,29 @@ void Castle::OpenWell( void )
                         str.append( GetString( can_recruit ) );
                         str.append( "\n" );
                     }
+                }
 
-                if ( str.empty() )
-                    str = "None";
-
-                if ( Dialog::YES == Dialog::ResourceInfo( _( "Buy Monsters:" ), str, total, Dialog::YES | Dialog::NO ) ) {
-                    for ( dwellings_t::const_iterator it = results.begin(); it != results.end(); ++it ) {
-                        const dwelling_t & dw = *it;
-                        RecruitMonsterFromDwelling( dw.first, dw.second );
+                if ( str.empty() ) {
+                    bool isCreaturePresent = false;
+                    for ( int i = 0; i < CASTLEMAXMONSTER; ++i ) {
+                        if ( dwelling[i] > 0 ) {
+                            isCreaturePresent = true;
+                            break;
+                        }
+                    }
+                    if ( isCreaturePresent ) {
+                        Dialog::Message( "", _( "Not enough resources to buy monsters." ), Font::BIG, Dialog::OK );
+                    }
+                    else {
+                        Dialog::Message( "", _( "No monsters available for purchase." ), Font::BIG, Dialog::OK );
+                    }
+                }
+                else {
+                    if ( Dialog::YES == Dialog::ResourceInfo( _( "Buy Monsters:" ), str, total, Dialog::YES | Dialog::NO ) ) {
+                        for ( dwellings_t::const_iterator it = results.begin(); it != results.end(); ++it ) {
+                            const dwelling_t & dw = *it;
+                            RecruitMonsterFromDwelling( dw.first, dw.second );
+                        }
                     }
                 }
             }
@@ -185,7 +200,7 @@ void Castle::OpenWell( void )
                 RecruitMonster( Dialog::RecruitMonster( Monster( race, GetActualDwelling( DWELLING_MONSTER6 ) ), dwelling[5], true ) );
         }
 
-        if ( Game::AnimateInfrequentDelay( Game::CASTLE_AROUND_DELAY ) ) {
+        if ( Game::AnimateInfrequentDelay( Game::CASTLE_UNIT_DELAY ) ) {
             cursor.Hide();
             WellRedrawInfoArea( cur_pt, monsterAnimInfo );
 
@@ -213,8 +228,8 @@ void Castle::WellRedrawInfoArea( const Point & cur_pt, const std::vector<RandomM
     }
 
     text.Set( _( "Town Population Information and Statistics" ), Font::BIG );
-    dst_pt.x = cur_pt.x + 280 - text.w() / 2;
-    dst_pt.y = cur_pt.y + 462;
+    dst_pt.x = cur_pt.x + 315 - text.w() / 2;
+    dst_pt.y = cur_pt.y + 463;
     text.Blit( dst_pt );
 
     u32 dw = DWELLING_MONSTER1;

@@ -83,6 +83,7 @@ s32 Battle::AIMaxQualityPosition( const Indexes & positions )
 
     for ( Indexes::const_iterator it = positions.begin(); it != positions.end(); ++it )
         if ( Board::isValidIndex( *it ) ) {
+            DEBUG( DBG_BATTLE, DBG_TRACE, *it << " index is " << Board::GetCell( *it )->GetQuality() );
             if ( res < 0 )
                 res = *it;
             else if ( Board::GetCell( res )->GetQuality() < Board::GetCell( *it )->GetQuality() )
@@ -157,10 +158,7 @@ s32 Battle::AIAttackPosition( Arena & arena, const Unit & b, const Indexes & pos
 {
     s32 res = -1;
 
-    if ( b.isMultiCellAttack() ) {
-        res = AIMaxQualityPosition( positions );
-    }
-    else if ( b.isDoubleCellAttack() ) {
+    if ( b.isDoubleCellAttack() ) {
         Indexes results;
         results.reserve( 12 );
 
@@ -195,8 +193,11 @@ s32 Battle::AIAttackPosition( Arena & arena, const Unit & b, const Indexes & pos
             }
         }
     }
+    else {
+        res = AIMaxQualityPosition( positions );
+    }
 
-    return 0 > res ? AIShortDistance( b.GetHeadIndex(), positions ) : res;
+    return b.canReach( res ) ? res : AIShortDistance( b.GetHeadIndex(), positions );
 }
 
 using namespace Battle;
@@ -215,15 +216,20 @@ void AI::Simple::BattleTurn( Arena & arena, const Unit & b, Actions & a )
     bool attack = false;
 
     if ( b.isArchers() && !b.isHandFighting() ) {
-        enemy = arena.GetEnemyMaxQuality( b.GetColor() );
-        if ( BattleMagicTurn( arena, b, a, enemy ) )
-            return; /* repeat turn: correct spell ability */
-        attack = true;
-    }
-    else if ( b.isHandFighting() ) {
-        enemy = AIGetEnemyAbroadMaxQuality( b );
-        if ( BattleMagicTurn( arena, b, a, enemy ) )
-            return; /* repeat turn: correct spell ability */
+        if ( b.Modes( SP_BERSERKER ) ) {
+            const Indexes positions = board->GetNearestTroopIndexes( b.GetHeadIndex(), NULL );
+            if ( positions.size() ) {
+                const int pos = *Rand::Get( positions );
+                const Cell * cell = Board::GetCell( pos );
+                enemy = cell ? cell->GetUnit() : NULL;
+            }
+        }
+        else {
+            enemy = arena.GetEnemyMaxQuality( b.GetColor() );
+            if ( BattleMagicTurn( arena, b, a, enemy ) )
+                return; // repeat turn: correct spell ability
+        }
+
         attack = true;
     }
     else {
@@ -233,6 +239,7 @@ void AI::Simple::BattleTurn( Arena & arena, const Unit & b, Actions & a )
             const Indexes positions = board->GetNearestTroopIndexes( b.GetHeadIndex(), NULL );
             if ( positions.size() )
                 move = *Rand::Get( positions );
+            attack = true;
         }
         else {
             if ( BattleMagicTurn( arena, b, a, NULL ) )
@@ -249,8 +256,8 @@ void AI::Simple::BattleTurn( Arena & arena, const Unit & b, Actions & a )
                 move = AIAttackPosition( arena, b, positions );
         }
 
-        if ( Board::isValidIndex( move ) ) {
-            if ( b.isFly() ) {
+        if ( Board::isValidIndex( move ) && move != b.GetHeadIndex() ) {
+            if ( b.isFlying() ) {
                 enemy = AIGetEnemyAbroadMaxQuality( move, b.GetColor() );
                 if ( BattleMagicTurn( arena, b, a, enemy ) )
                     return; /* repeat turn: correct spell ability */
@@ -288,12 +295,11 @@ void AI::Simple::BattleTurn( Arena & arena, const Unit & b, Actions & a )
                     }
 
                     if ( !enemy )
-                        enemy = AIGetEnemyAbroadMaxQuality( path.back(), b.GetColor() );
+                        enemy = AIGetEnemyAbroadMaxQuality( path.back(), b.GetCurrentColor() );
 
                     a.push_back( Battle::Command( MSG_BATTLE_MOVE, b.GetUID(), path.back() ) );
 
-                    // archers move and short attack only
-                    attack = b.isArchers() ? false : true;
+                    attack = true;
                 }
             }
         }

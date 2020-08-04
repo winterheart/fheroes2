@@ -180,7 +180,7 @@ public:
     bool BuyBuilding( u32 );
     bool AllowBuyBoat( void ) const;
     bool BuyBoat( void );
-    u32 GetBuildingRequires( u32 ) const;
+    u32 GetBuildingRequirement( u32 ) const;
 
     int CheckBuyBuilding( u32 ) const;
     static int GetAllBuildingStatus( const Castle & );
@@ -193,6 +193,7 @@ public:
     static const char * GetStringBuilding( u32, int race );
     static const char * GetDescriptionBuilding( u32, int race );
 
+    static bool isBuildingCycling( uint32_t building, int race );
     static int GetICNBuilding( u32, int race );
     static int GetICNBoat( int race );
     u32 GetUpgradeBuilding( u32 ) const;
@@ -221,7 +222,7 @@ private:
     u32 OpenTown( void );
     void OpenTavern( void );
     void OpenWell( void );
-    void OpenMageGuild( void );
+    void OpenMageGuild( const CastleHeroes & heroes );
     void WellRedrawInfoArea( const Point & cur_pt, const std::vector<RandomMonsterAnimation> & monsterAnimInfo );
     void JoinRNDArmy( void );
     void PostLoad( void );

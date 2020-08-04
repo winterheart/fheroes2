@@ -68,8 +68,16 @@ bool PressIntKey( u32 max, u32 & result );
 bool SaveMemToFile( const std::vector<u8> &, const std::string & );
 std::vector<u8> LoadFileToMem( const std::string & );
 
+double GetAngle( const Point & start, const Point & target );
 Points GetEuclideanLine( const Point & pt1, const Point & pt2, u16 step );
 Points GetLinePoints( const Point & pt1, const Point & pt2, u16 step );
 Points GetArcPoints( const Point & from, const Point & to, const Point & max, u16 step );
+
+// std::clamp replacement until we can use C++17
+template <typename T>
+T clamp( const T & value, const T & min, const T & max )
+{
+    return ( value < min ) ? min : ( max < value ) ? max : value;
+}
 
 #endif

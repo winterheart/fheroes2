@@ -21,6 +21,7 @@
  ***************************************************************************/
 
 #include <algorithm>
+#include <cmath>
 #include <map>
 
 #include "agg.h"
@@ -69,20 +70,22 @@ namespace Game
     int save_version = CURRENT_FORMAT_VERSION;
     std::vector<int> reserved_vols( LOOPXX_COUNT, 0 );
 
-    namespace RemoveAnimation
+    namespace ObjectFadeAnimation
     {
         Info::Info()
             : object( MP2::OBJ_ZERO )
             , index( 0 )
             , tile( 0 )
             , alpha( 255 )
+            , isFadeOut( true )
         {}
 
-        Info::Info( u8 object_, u8 index_, s32 tile_, u32 alpha_ )
+        Info::Info( u8 object_, u8 index_, s32 tile_, u32 alpha_, bool fadeOut )
             : object( object_ )
             , tile( tile_ )
             , alpha( alpha_ )
             , surfaceSize( world.GetTiles( tile_ ).GetTileSurface().GetSize() )
+            , isFadeOut( fadeOut )
         {
             index = ICN::AnimationFrame( MP2::GetICNObject( object ), index_, 0 );
             if ( 0 == index ) {
@@ -200,12 +203,12 @@ void Game::SetCurrentMusic( int mus )
     current_music = mus;
 }
 
-void Game::RemoveAnimation::Set( const Info & info )
+void Game::ObjectFadeAnimation::Set( const Info & info )
 {
     removeInfo = info;
 }
 
-Game::RemoveAnimation::Info & Game::RemoveAnimation::Get()
+Game::ObjectFadeAnimation::Info & Game::ObjectFadeAnimation::Get()
 {
     return removeInfo;
 }
@@ -218,24 +221,6 @@ u32 & Game::MapsAnimationFrame( void )
 u32 & Game::CastleAnimationFrame( void )
 {
     return castle_animation_frame;
-}
-
-void Game::SetFixVideoMode( void )
-{
-    const Settings & conf = Settings::Get();
-
-    Size fixsize( conf.VideoMode() );
-    Size mapSize = conf.MapsSize();
-
-    u32 max_x = Settings::Get().ExtGameHideInterface() ? mapSize.w * TILEWIDTH : ( 6 + mapSize.w ) * TILEWIDTH; // RADARWIDTH + 3 * BORDERWIDTH
-    u32 max_y = Settings::Get().ExtGameHideInterface() ? mapSize.h * TILEWIDTH : ( 1 + mapSize.h ) * TILEWIDTH; // 2 * BORDERWIDTH
-
-    if ( conf.VideoMode().w > max_x )
-        fixsize.w = max_x;
-    if ( conf.VideoMode().h > max_y )
-        fixsize.h = max_y;
-
-    Display::Get().SetVideoMode( fixsize.w, fixsize.h, conf.FullScreen(), conf.KeepAspectRatio(), conf.ChangeFullscreenResolution() );
 }
 
 /* play all sound from focus area game */
@@ -428,12 +413,6 @@ void Game::LoadExternalResource( const Settings & conf )
     if ( System::IsFile( spec ) )
         Game::UpdateGlobalDefines( spec );
 
-    // animations.xml
-    spec = Settings::GetLastFile( prefix_stats, "animations.xml" );
-
-    if ( System::IsFile( spec ) )
-        Battle::UpdateMonsterSpriteAnimation( spec );
-
     // battle.xml
     spec = Settings::GetLastFile( prefix_stats, "battle.xml" );
 
@@ -504,7 +483,6 @@ int Game::GetActualKingdomColors( void )
     return Settings::Get().GetPlayers().GetActualColors();
 }
 
-#include <cmath>
 std::string Game::CountScoute( u32 count, int scoute, bool shorts )
 {
     double infelicity = 0;
