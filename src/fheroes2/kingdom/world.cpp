@@ -557,7 +557,7 @@ void World::NewWeek( void )
     }
 
     // new day - reset option: "heroes: remember MP/SP for retreat/surrender result"
-    std::for_each( vec_heroes.begin(), vec_heroes.end(), std::bind2nd( std::mem_fun( &Heroes::ResetModes ), Heroes::SAVEPOINTS ) );
+    std::for_each( vec_heroes.begin(), vec_heroes.end(), []( Heroes * hero ) { hero->ResetModes( Heroes::SAVEPOINTS ); } );
 }
 
 void World::NewMonth( void )
@@ -596,7 +596,7 @@ void World::MonthOfMonstersAction( const Monster & mons )
         for ( MapsTiles::const_iterator it = vec_tiles.begin(); it != vec_tiles.end(); ++it ) {
             const Maps::Tiles & tile = *it;
 
-            if ( !tile.isWater() && MP2::OBJ_ZERO == tile.GetObject() && tile.isPassable( NULL, Direction::CENTER, true )
+            if ( !tile.isWater() && MP2::OBJ_ZERO == tile.GetObject() && tile.isPassable( Direction::CENTER, false, true )
                  && excld.end() == std::find( excld.begin(), excld.end(), tile.GetIndex() ) ) {
                 tiles.push_back( tile.GetIndex() );
                 const MapsIndexes & obja = Maps::GetAroundIndexes( tile.GetIndex(), dist );
@@ -938,7 +938,7 @@ bool World::KingdomIsWins( const Kingdom & kingdom, int wins ) const
     case GameOver::WINS_ARTIFACT: {
         const KingdomHeroes & heroes = kingdom.GetHeroes();
         if ( conf.WinsFindUltimateArtifact() ) {
-            return ( heroes.end() != std::find_if( heroes.begin(), heroes.end(), std::mem_fun( &Heroes::HasUltimateArtifact ) ) );
+            return ( heroes.end() != std::find_if( heroes.begin(), heroes.end(), []( const Heroes * hero ) { return hero->HasUltimateArtifact(); } ) );
         }
         else {
             const Artifact art = conf.WinsFindArtifactID();
@@ -1177,7 +1177,7 @@ StreamBase & operator>>( StreamBase & msg, World & w )
     std::for_each( w.vec_tiles.begin(), w.vec_tiles.end(), std::mem_fun_ref( &Maps::Tiles::UpdatePassable ) );
 
     // heroes postfix
-    std::for_each( w.vec_heroes.begin(), w.vec_heroes.end(), std::mem_fun( &Heroes::RescanPathPassable ) );
+    std::for_each( w.vec_heroes.begin(), w.vec_heroes.end(), []( Heroes * hero ) { hero->RescanPathPassable(); } );
 
     return msg;
 }

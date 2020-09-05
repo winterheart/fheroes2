@@ -475,14 +475,6 @@ namespace AI
             // wins attacker
             if ( res.AttackerWins() ) {
                 hero.IncreaseExperience( res.GetExperienceAttacker() );
-
-                // disable: auto move hero for AI
-                /*
-                    if(conf.ExtHeroAutoMove2BattleTarget() && !disable_auto_move)
-                    {
-                            hero.Move2Dest(dst_index);
-                    }
-                */
             }
             else
                 // wins defender
@@ -564,15 +556,6 @@ namespace AI
                 castle->Scoute();
                 // allow_enter = true;
             }
-
-            // disable: auto move hero to castle for AI
-            /*
-                if(conf.ExtHeroAutoMove2BattleTarget() && allow_enter)
-                {
-                    hero.Move2Dest(dst_index);
-                    AIToCastle(hero, MP2::OBJ_CASTLE, dst_index);
-                }
-            */
         }
     }
 
@@ -658,15 +641,6 @@ namespace AI
 
             if ( map_troop )
                 world.RemoveMapObject( map_troop );
-
-            // auto move hero
-            // disable: https://sourceforge.net/tracker/index.php?func=detail&aid=3155230&group_id=96859&atid=616180
-            /*
-                if(conf.ExtHeroAutoMove2BattleTarget() && allow_move)
-                {
-                    hero.Move2Dest(dst_index);
-                }
-            */
         }
     }
 
@@ -897,7 +871,7 @@ namespace AI
         }
 
         hero.FadeOut();
-        hero.Move2Dest( index_to, true, true ); // no action and no penalty
+        hero.Move2Dest( index_to );
         hero.GetPath().Reset();
         if ( AIHeroesShowAnimation( hero, AIGetAllianceColors( hero ) ) ) {
             Interface::Basic::Get().GetGameArea().SetCenter( hero.GetCenter() );
@@ -918,7 +892,7 @@ namespace AI
         }
 
         hero.FadeOut();
-        hero.Move2Dest( index_to, true, true ); // no action and no penalty
+        hero.Move2Dest( index_to );
 
         Troop * troop = hero.GetArmy().GetWeakestTroop();
 
@@ -1497,6 +1471,7 @@ namespace AI
         if ( AIHeroesShowAnimation( hero, AIGetAllianceColors( hero ) ) ) {
             Interface::Basic::Get().GetGameArea().SetCenter( hero.GetCenter() );
         }
+        hero.ActionNewPosition();
 
         AI::Get().HeroesClearTask( hero );
 
@@ -1508,13 +1483,13 @@ namespace AI
         if ( Settings::Get().ExtWorldEyeEagleAsScholar() )
             Heroes::ScholarAction( hero1, hero2 );
 
-        if ( hero1.Modes( AI::HEROES_HUNTER ) )
+        if ( hero1.Modes( AI::HERO_HUNTER ) )
             hero1.GetArmy().JoinStrongestFromArmy( hero2.GetArmy() );
-        else if ( hero2.Modes( AI::HEROES_HUNTER ) )
+        else if ( hero2.Modes( AI::HERO_HUNTER ) )
             hero2.GetArmy().JoinStrongestFromArmy( hero1.GetArmy() );
-        else if ( hero1.Modes( AI::HEROES_SCOUTER ) )
+        else if ( hero1.Modes( AI::HERO_SCOUT ) )
             hero1.GetArmy().KeepOnlyWeakestTroops( hero2.GetArmy() );
-        else if ( hero2.Modes( AI::HEROES_SCOUTER ) )
+        else if ( hero2.Modes( AI::HERO_SCOUT ) )
             hero2.GetArmy().KeepOnlyWeakestTroops( hero1.GetArmy() );
 
         // artifacts change
@@ -1962,7 +1937,7 @@ namespace AI
 
                     I.Redraw( REDRAW_GAMEAREA );
                     cursor.Show();
-                    Display::Get().Flip();
+                    fheroes2::Display::instance().render();
                 }
 
                 if ( Game::AnimateInfrequentDelay( Game::MAPS_DELAY ) ) {
