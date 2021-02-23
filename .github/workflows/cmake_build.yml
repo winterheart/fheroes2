@@ -5,6 +5,7 @@ on: [push, pull_request]
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         config:
           - { os: ubuntu-latest,  sdl_version: "SDL",  sdl_packages: "libsdl1.2-dev libsdl-image1.2-dev libsdl-mixer1.2-dev libsdl-ttf2.0-dev" }
@@ -33,4 +34,3 @@ jobs:
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DUSE_SDL_VERSION=${{ matrix.config.sdl_version }} -DENABLE_IMAGE=ON -DENABLE_MIXER=ON -DENABLE_UNICODE=ON -DFHEROES2_STRICT_COMPILATION=ON ${{ matrix.config.toolchain }}
           cmake --build build -j2
-
