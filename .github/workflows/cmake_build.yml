@@ -12,7 +12,7 @@ jobs:
           - { os: ubuntu-latest,  sdl_version: "SDL2", sdl_packages: "libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev" }
           - { os: macos-latest,   sdl_version: "SDL",  sdl_packages: "sdl sdl_image sdl_mixer sdl_ttf" }
           - { os: macos-latest,   sdl_version: "SDL2", sdl_packages: "sdl2 sdl2_image sdl2_mixer sdl2_ttf" }
-          - { os: windows-latest, sdl_version: "SDL2", sdl_packages: "libiconv sdl2 sdl2-image sdl2-mixer sdl2-ttf zlib", toolchain: -DCMAKE_TOOLCHAIN_FILE=${env:VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake}
+          - { os: windows-latest, sdl_version: "SDL2", sdl_packages: "libiconv sdl2 sdl2-image sdl2-mixer sdl2-ttf zlib" }
     runs-on: ${{ matrix.config.os }}
     steps:
       - name: Checkout
