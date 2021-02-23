@@ -22,7 +22,9 @@ jobs:
         uses: actions/cache@v2.1.4
         id: vcpkgcache
         with:
-          path: ${env:VCPKG_INSTALLATION_ROOT}/installed
+          # FIXME: Need to rework as environmental variable between steps. For now there goes hardcode
+          # path: ${env:VCPKG_INSTALLATION_ROOT}/installed
+          path: C:/vcpkg/installed
           key: ${{ runner.os }}-vcpkg
       - name: Install dependencies (Linux)
         if: matrix.config.os == 'ubuntu-latest'
@@ -46,4 +48,4 @@ jobs:
         if: matrix.config.os == 'windows-latest'
         run: |
           cmake -B build -DUSE_SDL_VERSION=${{ matrix.config.sdl_version }} -DENABLE_IMAGE=ON -DENABLE_MIXER=ON -DENABLE_UNICODE=ON -DFHEROES2_STRICT_COMPILATION=ON -DCMAKE_TOOLCHAIN_FILE="${env:VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
-          cmake --build -j2 --config Release build
+          cmake --build build -j2 --config Release
