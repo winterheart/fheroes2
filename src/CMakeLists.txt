@@ -1,6 +1,10 @@
 if(FHEROES2_STRICT_COMPILATION)
-	set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-Werror")
-	set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-Werror")
+	if (MSVC)
+		# /WX fails compilation completely. Add when code will be ready
+		add_compile_options(/W4)
+	else()
+		add_compile_options(-Wall -Wextra -pedantic -Werror)
+	endif()
 endif()
 
 add_subdirectory(thirdparty)
