@@ -39,6 +39,7 @@ target_include_directories(fheroes2 PRIVATE
 target_link_libraries(fheroes2
 	${MINGW_LIBRARIES}  # Be sure define it first. Beware WinMain@16 error!!
 	engine
+	Threads::Threads
 	$<$<BOOL:${ENABLE_MIXER}>:${SDL_MIXER_LIBRARIES}>
 	$<$<BOOL:${ENABLE_XML}>:tinyxml>
 	$<$<BOOL:${ENABLE_ZLIB}>:ZLIB::ZLIB>
