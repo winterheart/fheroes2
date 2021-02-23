@@ -1,7 +1,6 @@
 if(FHEROES2_STRICT_COMPILATION)
 	if (MSVC)
-		# /WX fails compilation completely. Add when code will be ready
-		add_compile_options(/W4)
+		add_compile_options(/W4 /WX)
 	else()
 		add_compile_options(-Wall -Wextra -pedantic -Werror)
 	endif()
